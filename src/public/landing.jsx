@@ -4,7 +4,7 @@ import MyHero from "../components/hero";
 import Steps from "../components/steps";
 import Reasons from "../components/reasons";
 import Footer from "../components/footer";
-import Login from "./login";
+import AboutUs from "../components/aboutUs";
 import "../App.css";
 
 const Landing = () => {
@@ -14,6 +14,7 @@ const Landing = () => {
       <MyHero />
       <Steps />
       <Reasons />
+      <AboutUs />
       <Footer />
     </>
   );

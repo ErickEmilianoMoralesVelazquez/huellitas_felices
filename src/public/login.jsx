@@ -28,35 +28,35 @@ const SignUpForm = ({ switchToLogin }) => {
       </p>
 
       <form className="flex flex-col gap-4 w-full mt-5 max-w-md">
-        <label className="font-bold text-md">Nombre</label>
+        <label className="text-md">Nombre:</label>
         <input
           type="text"
           placeholder="Nombre completo"
           className="outline outline-gray-300 rounded-sm h-10 pl-2"
         />
 
-        <label className="font-bold text-md">Dirección</label>
+        <label className="text-md">Dirección:</label>
         <input
           type="text"
           placeholder="Dirección"
           className="outline outline-gray-300 rounded-sm h-10 pl-2"
         />
 
-        <label className="font-bold text-md">Teléfono</label>
+        <label className="text-md">Teléfono:</label>
         <input
           type="tel"
           placeholder="Número telefónico"
           className="outline outline-gray-300 rounded-sm h-10 pl-2"
         />
 
-        <label className="font-bold text-md">Correo electrónico</label>
+        <label className="text-md">Correo electrónico:</label>
         <input
           type="email"
           placeholder="Correo electrónico"
           className="outline outline-gray-300 rounded-sm h-10 pl-2"
         />
 
-        <label className="font-bold text-md">Contraseña</label>
+        <label className="text-md">Contraseña:</label>
         <div className="relative">
           <input
             type={showPassword ? "text" : "password"}
@@ -72,14 +72,14 @@ const SignUpForm = ({ switchToLogin }) => {
           </button>
         </div>
 
-        <button className="bg-[#ff6900] mt-5 text-white rounded-sm h-10 hover:bg-[#e85c00]">
+        <button className="bg-[#ff6900] mt-5 text-white rounded-sm h-10 hover:bg-[#e85c00] cursor-pointer">
           Crear cuenta
         </button>
       </form>
 
       <p className="text-sm text-gray-500 mt-5">
         ¿Ya tienes una cuenta?{" "}
-        <button onClick={switchToLogin} className="text-[#ff6900] underline">
+        <button onClick={switchToLogin} className="text-[#ff6900] underline cursor-pointer">
           Inicia sesión
         </button>
       </p>
@@ -113,14 +113,14 @@ const LoginForm = ({ switchToRegister }) => {
       </p>
 
       <form className="flex flex-col gap-4 w-full mt-5 max-w-md">
-        <label className="font-bold text-md">Correo electrónico</label>
+        <label className="text-md">Correo electrónico:</label>
         <input
           type="email"
           placeholder="Correo electrónico"
           className="outline outline-gray-300 rounded-sm h-10 pl-2"
         />
 
-        <label className="font-bold text-md">Contraseña</label>
+        <label className="text-md">Contraseña:</label>
         <div className="relative">
           <input
             type={showPassword ? "text" : "password"}
@@ -136,14 +136,14 @@ const LoginForm = ({ switchToRegister }) => {
           </button>
         </div>
 
-        <button className="bg-[#ff6900] mt-5 text-white rounded-sm h-10 hover:bg-[#e85c00]">
+        <button className="bg-[#ff6900] mt-5 text-white rounded-sm h-10 hover:bg-[#e85c00] cursor-pointer">
           Iniciar sesión
         </button>
       </form>
 
       <p className="text-sm text-gray-500 mt-5">
         ¿No tienes una cuenta?{" "}
-        <button onClick={switchToRegister} className="text-[#ff6900] underline">
+        <button onClick={switchToRegister} className="text-[#ff6900] underline cursor-pointer">
           Regístrate
         </button>
       </p>
@@ -166,7 +166,7 @@ const Login = () => {
       </div>
 
       {/* Formulario con animación */}
-      <div className="w-full md:w-1/2 bg-white p-6 rounded-lg shadow-lg md:shadow-none">
+      <div className="w-full md:w-1/2 bg-white p-6 rounded-lg shadow-xl md:shadow-none">
         <AnimatePresence mode="wait">
           {isLogin ? (
             <LoginForm key="login" switchToRegister={() => setIsLogin(false)} />

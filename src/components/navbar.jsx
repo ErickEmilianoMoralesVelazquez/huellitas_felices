@@ -47,7 +47,7 @@ const Navbar = () => {
           <a href="#" className="text-sm/6 font-semibold text-gray-900 hover:text-[#ff6900]">
             Catálogo
           </a>
-          <a href="#" className="text-sm/6 font-semibold text-gray-900 hover:text-[#ff6900]">
+          <a href="#aboutus" className="text-sm/6 font-semibold text-gray-900 hover:text-[#ff6900]">
             Sobre Nosotros
           </a>
         </PopoverGroup>
@@ -118,7 +118,7 @@ const Navbar = () => {
                     </motion.a>
                     <motion.a
                       whileHover={{ x: 10 }}
-                      href="#"
+                      href="#aboutus"
                       className="-mx-3 block rounded-lg px-3 py-2 text-base/7 font-semibold text-gray-900 hover:bg-gray-50"
                     >
                       Sobre Nosotros
