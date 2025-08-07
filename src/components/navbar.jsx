@@ -12,6 +12,7 @@ import {
   XMarkIcon,
 } from '@heroicons/react/24/outline'
 import { motion, AnimatePresence } from 'framer-motion'
+import { Link } from 'react-router-dom';
 
 const Navbar = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -51,9 +52,9 @@ const Navbar = () => {
           </a>
         </PopoverGroup>
         <div className="hidden lg:flex lg:flex-1 lg:justify-end">
-          <a href="#" className="text-sm/6 font-semibold text-gray-900 hover:text-[#ff6900]">
+          <Link to={"/login"} className="text-sm/6 font-semibold text-gray-900 hover:text-[#ff6900]">
             Iniciar sesión <span aria-hidden="true">&rarr;</span>
-          </a>
+          </Link>
         </div>
       </nav>
 
@@ -126,7 +127,7 @@ const Navbar = () => {
                   <div className="py-6">
                     <motion.a
                       whileHover={{ x: 10 }}
-                      href="#"
+                      href="/login"
                       className="-mx-3 block rounded-lg px-3 py-2.5 text-base/7 font-semibold text-gray-900 hover:bg-gray-50"
                     >
                       Iniciar sesión
