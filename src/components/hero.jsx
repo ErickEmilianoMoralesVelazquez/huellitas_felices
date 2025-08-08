@@ -1,5 +1,6 @@
 import React from "react";
 import { ArrowRight } from "lucide-react";
+import { Link } from "react-router";
 
 const MyHero = () => {
   return (
@@ -15,10 +16,12 @@ const MyHero = () => {
           perfecto y cambia dos vidas para siempre.
         </h2>
 
-        <button className="flex mt-8 px-6 py-3 bg-[#ff6900] text-white font-semibold rounded-lg hover:bg-orange-600 cursor-pointer transform transition-transform duration-300 hover:scale-105">
-          Ver mascotas
-          <ArrowRight className="ml-2 w-5" />
-        </button>
+        <Link to={"/catalogo"}>
+          <button className="flex mt-8 px-6 py-3 bg-[#ff6900] text-white font-semibold rounded-lg hover:bg-orange-600 cursor-pointer transform transition-transform duration-300 hover:scale-105">
+            Ver mascotas
+            <ArrowRight className="ml-2 w-5" />
+          </button>
+        </Link>
       </div>
     </div>
   );
