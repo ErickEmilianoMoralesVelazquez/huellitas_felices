@@ -1,28 +1,40 @@
-import React from 'react';
-import { useState } from 'react';
+import React from "react";
+import { useState } from "react";
 import {
   Dialog,
   DialogPanel,
   PopoverGroup,
   PopoverPanel,
-} from '@headlessui/react'
+} from "@headlessui/react";
 import {
   ArrowPathIcon,
   Bars3Icon,
   XMarkIcon,
-} from '@heroicons/react/24/outline'
-import { motion, AnimatePresence } from 'framer-motion'
-import { Link } from 'react-router-dom';
+} from "@heroicons/react/24/outline";
+import { motion, AnimatePresence } from "framer-motion";
+import { Link, useLocation } from "react-router-dom";
 
 const Navbar = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  
+  const location = useLocation();
+  const currentPath = location.pathname;
+
+  const navItemClass = (path) =>
+    `text-sm font-semibold ${
+      currentPath === path
+        ? "text-[#ff6900]"
+        : "text-gray-900 hover:text-[#ff6900]"
+    }`;
+
   return (
     <header className="bg-white fixed top-0 left-0 w-full z-50">
-      <nav aria-label="Global" className="mx-auto flex max-w-7xl items-center justify-between p-6 lg:px-8">
+      <nav
+        aria-label="Global"
+        className="mx-auto flex max-w-7xl items-center justify-between p-6 lg:px-8"
+      >
         <div className="flex lg:flex-1">
           <a href="#" className="-m-1.5 p-1.5">
-            <span className="sr-only">Your Company</span>
+            <span className="sr-only">Huellitas Felices</span>
             <img
               alt="Huellitas Felices"
               src="/public/ICONOO.svg"
@@ -41,18 +53,30 @@ const Navbar = () => {
           </button>
         </div>
         <PopoverGroup className="hidden lg:flex lg:gap-x-12">
-          <a href="#" className="text-sm/6 font-semibold text-gray-900 hover:text-[#ff6900]">
+          <Link
+            to={"/"}
+            className={navItemClass("/")}
+          >
             Inicio
-          </a>
-          <a href="#" className="text-sm/6 font-semibold text-gray-900 hover:text-[#ff6900]">
+          </Link>
+          <Link
+            to={"/catalogo"}
+            className={navItemClass("/catalogo")}
+          >
             Catálogo
-          </a>
-          <a href="#aboutus" className="text-sm/6 font-semibold text-gray-900 hover:text-[#ff6900]">
+          </Link>
+          <a
+            href="#aboutus"
+            className="text-sm/6 font-semibold text-gray-900 hover:text-[#ff6900]"
+          >
             Sobre Nosotros
           </a>
         </PopoverGroup>
         <div className="hidden lg:flex lg:flex-1 lg:justify-end">
-          <Link to={"/login"} className="text-sm/6 font-semibold text-gray-900 hover:text-[#ff6900]">
+          <Link
+            to={"/login"}
+            className="text-sm/6 font-semibold text-gray-900 hover:text-[#ff6900]"
+          >
             Iniciar sesión <span aria-hidden="true">&rarr;</span>
           </Link>
         </div>
@@ -60,7 +84,11 @@ const Navbar = () => {
 
       <AnimatePresence>
         {mobileMenuOpen && (
-          <Dialog open={mobileMenuOpen} onClose={setMobileMenuOpen} className="lg:hidden">
+          <Dialog
+            open={mobileMenuOpen}
+            onClose={setMobileMenuOpen}
+            className="lg:hidden"
+          >
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 0.5 }}
@@ -74,17 +102,13 @@ const Navbar = () => {
               animate={{ x: 0 }}
               exit={{ x: "100%" }}
               transition={{ type: "spring", damping: 25, stiffness: 200 }}
-              className="fixed inset-y-0 right-0 z-50 w-full overflow-y-auto bg-white p-6 sm:max-w-sm sm:ring-1 sm:ring-gray-900/10"
+              className="fixed inset-y-0 right-0 z-50 w-2/3 overflow-y-auto bg-white p-6 sm:max-w-sm sm:ring-1 sm:ring-gray-900/10"
             >
               <div className="flex items-center justify-between">
-                <a href="#" className="-m-1.5 p-1.5">
-                  <span className="sr-only">Your Company</span>
-                  <img
-                    alt=""
-                    src="/public/ICONOO.svg"
-                    className="h-8 w-auto"
-                  />
-                </a>
+                <Link to={"/"} className="-m-1.5 p-1.5">
+                  <span className="sr-only">Huellitas Felices</span>
+                  <img alt="" src="/public/ICONOO.svg" className="h-8 w-auto" />
+                </Link>
                 <button
                   type="button"
                   onClick={() => setMobileMenuOpen(false)}
@@ -102,36 +126,36 @@ const Navbar = () => {
               >
                 <div className="-my-6 divide-y divide-gray-500/10">
                   <div className="space-y-2 py-6">
-                    <motion.a
+                    <Link
                       whileHover={{ x: 10 }}
-                      href="#"
+                      to={"/"}
                       className="-mx-3 block rounded-lg px-3 py-2 text-base/7 font-semibold text-gray-900 hover:bg-gray-50"
                     >
                       Inicio
-                    </motion.a>
-                    <motion.a
+                    </Link>
+                    <Link
                       whileHover={{ x: 10 }}
-                      href="#"
+                      to={"/catalogo"}
                       className="-mx-3 block rounded-lg px-3 py-2 text-base/7 font-semibold text-gray-900 hover:bg-gray-50"
                     >
                       Catálogo
-                    </motion.a>
-                    <motion.a
+                    </Link>
+                    <Link
                       whileHover={{ x: 10 }}
-                      href="#aboutus"
+                      to={"#aboutus"}
                       className="-mx-3 block rounded-lg px-3 py-2 text-base/7 font-semibold text-gray-900 hover:bg-gray-50"
                     >
                       Sobre Nosotros
-                    </motion.a>
+                    </Link>
                   </div>
                   <div className="py-6">
-                    <motion.a
+                    <Link
                       whileHover={{ x: 10 }}
                       href="/login"
                       className="-mx-3 block rounded-lg px-3 py-2.5 text-base/7 font-semibold text-gray-900 hover:bg-gray-50"
                     >
                       Iniciar sesión
-                    </motion.a>
+                    </Link>
                   </div>
                 </div>
               </motion.div>
