@@ -185,7 +185,7 @@ export default function DashboardAdmin() {
         </div>
 
         {/* Tabs */}
-        <div className="mb-8 grid w-full grid-cols-3 rounded-xl border bg-white p-1 text-sm shadow-sm">
+        <div className="mb-8 grid w-full grid-cols-3 rounded-xl bg-white p-1 text-sm shadow-sm">
           <button
             type="button"
             onClick={() => setTab("employees")}
