@@ -7,15 +7,23 @@ const NavbarAdopter = ({ logoSrc = "/public/ICONOO.svg", onLogout }) => {
   const navigate = useNavigate();
 
   function handleLogout() {
+    // Limpiar datos de sesión
+    localStorage.clear();
+    sessionStorage.clear();
+
+    // Si tienes cookies de auth, aquí podrías limpiarlas también
+
     // Si te pasaron una función de logout, úsala
     if (typeof onLogout === "function") {
       onLogout();
-    } else {
-      // Ejemplo genérico: limpia sesión y redirige
-      localStorage.removeItem("authToken");
-      sessionStorage.clear();
     }
-    navigate("/login");
+
+    // Prevenir volver atrás inmediatamente
+    navigate("/login", { replace: true });
+    window.history.pushState(null, "", window.location.href);
+    window.onpopstate = () => {
+      window.history.go(1);
+    };
   }
 
   return (
@@ -32,7 +40,7 @@ const NavbarAdopter = ({ logoSrc = "/public/ICONOO.svg", onLogout }) => {
           </Link>
         </div>
 
-        {/* Solo botón de cerrar sesión */}
+        {/* Botón de cerrar sesión */}
         <button
           onClick={handleLogout}
           className="inline-flex items-center gap-2 rounded-md border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 active:bg-gray-100"
