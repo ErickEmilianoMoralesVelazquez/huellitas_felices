@@ -1,16 +1,21 @@
-import { useState } from "react";
-import React from "react";
+import { Routes, Route } from "react-router-dom";
+import Landing from "@/public/landing.jsx";
+import Catalogo from "@/public/catalogo.jsx";
+import Login from "@/public/login.jsx";
+import AdopterProfile from "./public/adopter_profile";
+import AdopterLayout from "./layout/adopterLayout";
 
-import "./App.css";
-
-function App() {
-  const [count, setCount] = useState(0);
-
+export default function App() {
   return (
-    <>
-      <h1 class="text-3xl font-bold underline bg-amber-500">Hello world!</h1>
-    </>
+    <Routes>
+      <Route path="/" element={<Landing />} />
+      <Route path="/catalogo" element={<Catalogo />} />
+      <Route path="/login" element={<Login />} />
+
+      <Route element={<AdopterLayout />}>
+        <Route path="/adoptador" element={<AdopterProfile />} />
+        {/* Aquí puedes agregar más rutas internas */}
+      </Route>
+    </Routes>
   );
 }
-
-export default App;

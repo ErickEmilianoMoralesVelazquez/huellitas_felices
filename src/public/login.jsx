@@ -24,7 +24,7 @@ const SignUpForm = ({ switchToLogin }) => {
       </Link>
       <h1 className="text-2xl font-bold mt-2">Crear cuenta</h1>
       <p className="text-sm text-gray-500 mt-2">
-        Hola! estamos muy contentos de que seas parte de nosotros
+      ¡Hola! Estamos muy contentos de que seas parte de nosotros
       </p>
 
       <form className="flex flex-col gap-4 w-full mt-5 max-w-md">
