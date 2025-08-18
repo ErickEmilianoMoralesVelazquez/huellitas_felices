@@ -1,4 +1,5 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   PlusCircle,
   Settings,
@@ -17,59 +18,16 @@ import {
   Edit,
   Sparkles,
 } from "lucide-react";
+import { getAllPets, createPet, updatePet, getAllAdopters, isAuthenticated } from "../lib/api";
 
 const SAMPLE_USERS = [
   { id: "u1", name: "Ana Pérez" },
   { id: "u2", name: "Carlos Ruiz" },
 ];
 
-const SAMPLE_PETS = [
-  {
-    id: "p1",
-    name: "Firu",
-    breed: "Labrador",
-    category: "Perro",
-    color: "Marrón",
-    weight: 24.5,
-    height: 0.55,
-    description: "Juguetón, sociable y muy amigable con niños.",
-    status: "Disponible",
-    image: "/pets.webp",
-    admissionDate: new Date(Date.now() - 1000 * 60 * 60 * 24 * 7).toISOString(),
-  },
-  {
-    id: "p2",
-    name: "Michi",
-    breed: "Siamés",
-    category: "Gato",
-    color: "Crema y chocolate",
-    weight: 4.2,
-    height: 0.28,
-    description: "Tranquilo y curioso. Le gusta tomar el sol.",
-    status: "En proceso de adopción",
-    adopterId: "u1",
-    image: "/pets2.webp",
-    admissionDate: new Date(Date.now() - 1000 * 60 * 60 * 24 * 14).toISOString(),
-  },
-  {
-    id: "p3",
-    name: "Luna",
-    breed: "Mini Lop",
-    category: "Conejo",
-    color: "Gris perla",
-    weight: 2.1,
-    height: 0.18,
-    description: "Muy tierna y tranquila. Ideal para interiores.",
-    status: "Adoptado",
-    adopterId: "u2",
-    image: "/pets3.webp",
-    admissionDate: new Date(Date.now() - 1000 * 60 * 60 * 24 * 30).toISOString(),
-  },
-];
+
 
 export default function EmployeeDashboard({
-  pets = [],
-  users = [],
   currentUser,
   onAddPet,
   onUpdatePet,
@@ -88,15 +46,83 @@ export default function EmployeeDashboard({
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [lastRegistered, setLastRegistered] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [successMessage, setSuccessMessage] = useState(null);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showPetDetailsModal, setShowPetDetailsModal] = useState(false);
+  const [selectedPet, setSelectedPet] = useState(null);
+  const [newStatus, setNewStatus] = useState("");
+  const [adopters, setAdopters] = useState([]);
+  const [selectedAdopterId, setSelectedAdopterId] = useState("");
 
   const safeUser = currentUser ?? { id: "demo-employee", name: "Empleado Demo", role: "employee" };
 
-  const [localPets, setLocalPets] = useState(pets.length > 0 ? pets : SAMPLE_PETS);
-  const localUsers = users.length > 0 ? users : SAMPLE_USERS;
+  const [localPets, setLocalPets] = useState([]);
 
-  const availablePets = useMemo(() => localPets.filter((p) => p.status === "Disponible"), [localPets]);
-  const inProcessPets = useMemo(() => localPets.filter((p) => p.status === "En proceso de adopción"), [localPets]);
-  const adoptedPets = useMemo(() => localPets.filter((p) => p.status === "Adoptado"), [localPets]);
+    // Cargar mascotas y adoptadores del backend
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        // Verificar autenticación
+        if (!isAuthenticated()) {
+          setError("No estás autenticado. Redirigiendo al login...");
+          setTimeout(() => {
+            window.location.href = '/login';
+          }, 2000);
+          return;
+        }
+
+        setIsLoading(true);
+        setError(null);
+        
+        // Cargar mascotas y adoptadores en paralelo
+        console.log("Cargando datos desde:", import.meta.env.VITE_SERVER_IP);
+        const [petsData, adoptersData] = await Promise.all([
+          getAllPets(),
+          getAllAdopters()
+        ]);
+        
+        console.log("Mascotas recibidas:", petsData);
+        console.log("Adoptadores recibidos:", adoptersData);
+        
+        setLocalPets(petsData || []);
+        setAdopters(adoptersData || []);
+      } catch (err) {
+        console.error("Error al cargar datos:", err);
+        console.error("Detalles del error:", err.details);
+        
+        let errorMessage = "Error al cargar los datos.";
+        if (err.authError) {
+          errorMessage = "Sesión expirada. Por favor, inicia sesión nuevamente.";
+          // Redirigir al login después de un momento
+          setTimeout(() => {
+            window.location.href = '/login';
+          }, 2000);
+        } else if (err.message.includes("Failed to fetch")) {
+          errorMessage = "No se pudo conectar al servidor. Verifica que el backend esté ejecutándose en http://localhost:8080";
+        } else if (err.status === 404) {
+          errorMessage = "Endpoint no encontrado. Verifica que la API esté disponible.";
+        } else if (err.status === 500) {
+          errorMessage = "Error interno del servidor. Contacta al administrador.";
+        } else {
+          errorMessage = `${err.message}. Verifica la conexión al servidor.`;
+        }
+        
+        setError(errorMessage);
+        setLocalPets([]);
+        setAdopters([]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadData();
+  }, []);
+
+  const availablePets = useMemo(() => localPets.filter((p) => p.estado === "DISPONIBLE"), [localPets]);
+  const inProcessPets = useMemo(() => localPets.filter((p) => p.estado === "EN_PROCESO_ADOPCION"), [localPets]);
+  const adoptedPets = useMemo(() => localPets.filter((p) => p.estado === "ADOPTADO"), [localPets]);
 
   const getInitials = (name = "") =>
     name
@@ -108,56 +134,104 @@ export default function EmployeeDashboard({
 
   const getStatusColor = (status) => {
     switch (status) {
-      case "Disponible":
+      case "DISPONIBLE":
         return "bg-green-100 text-green-800 border-green-200";
-      case "En proceso de adopción":
+      case "EN_PROCESO_ADOPCION":
         return "bg-yellow-100 text-yellow-800 border-yellow-200";
-      case "Adoptado":
+      case "ADOPTADO":
         return "bg-gray-100 text-gray-800 border-gray-200";
       default:
         return "bg-gray-100 text-gray-800 border-gray-200";
     }
   };
 
-  const getAdopterName = (adopterId) => {
-    if (!adopterId) return "-";
-    const adopter = localUsers.find((u) => u.id === adopterId);
-    return adopter?.name || "Usuario no encontrado";
-    };
+  const getAdopterName = (adoptador) => {
+    if (!adoptador) return "-";
+    return adoptador.user?.nombre || "Usuario no encontrado";
+  };
 
   async function handleSubmit(e) {
     e.preventDefault();
     setIsSubmitting(true);
+    setError(null);
+    
     try {
-      await new Promise((r) => setTimeout(r, 800)); // pequeño delay visual
+      console.log("Iniciando registro de mascota...");
+      console.log("Datos del formulario:", newPet);
+      
+      // Validar datos requeridos
+      if (!newPet.name || !newPet.breed || !newPet.color || !newPet.weight || !newPet.height || !newPet.description) {
+        setError("Todos los campos son obligatorios excepto la URL de imagen.");
+        return;
+      }
+
+      // Validar que peso y estatura sean números válidos
+      const peso = parseFloat(newPet.weight);
+      const estatura = parseFloat(newPet.height);
+      
+      if (isNaN(peso) || peso <= 0) {
+        setError("El peso debe ser un número mayor a 0.");
+        return;
+      }
+      
+      if (isNaN(estatura) || estatura <= 0) {
+        setError("La estatura debe ser un número mayor a 0.");
+        return;
+      }
+
+      // Mapear categoría a categoriaId
+      const getCategoriaId = (category) => {
+        const categorias = {
+          "Perro": 1,
+          "Gato": 2,
+          "Hámster": 3,
+          "Pájaro": 4,
+          "Conejo": 5,
+          "Otro": 6
+        };
+        return categorias[category] || 1;
+      };
 
       const petData = {
-        name: newPet.name,
-        breed: newPet.breed,
-        category: newPet.category,
-        color: newPet.color,
-        weight: parseFloat(newPet.weight),
-        height: parseFloat(newPet.height),
-        description: newPet.description,
-        status: "Disponible",
-        image:
-          newPet.image ||
-          `/placeholder.svg?height=300&width=400&text=${encodeURIComponent(newPet.name || "Mascota")}`,
+        nombre: newPet.name.trim(),
+        raza: newPet.breed.trim(),
+        categoriaId: getCategoriaId(newPet.category),
+        color: newPet.color.trim(),
+        peso: peso,
+        estatura: estatura,
+        descripcion: newPet.description.trim(),
       };
+
+      console.log("Datos a enviar al API:", petData);
+
+      // Validar que categoriaId sea válido
+      if (!petData.categoriaId || petData.categoriaId < 1 || petData.categoriaId > 6) {
+        setError("Categoría inválida. Selecciona una categoría válida.");
+        return;
+      }
 
       if (onAddPet) {
         const registeredPet = onAddPet(petData);
         setLastRegistered(registeredPet || null);
       } else {
-        const newPetObj = {
-          id: `p-${Date.now()}`,
-          admissionDate: new Date().toISOString(),
-          ...petData,
-        };
-        setLocalPets((prev) => [newPetObj, ...prev]);
-        setLastRegistered(newPetObj);
+        // Usar la API del backend
+        console.log("Llamando a createPet...");
+        const registeredPet = await createPet(petData);
+        console.log("Respuesta del API:", registeredPet);
+        
+        if (registeredPet) {
+          setLastRegistered(registeredPet);
+          
+          // Recargar la lista de mascotas
+          console.log("Recargando lista de mascotas...");
+          const updatedPets = await getAllPets();
+          setLocalPets(updatedPets || []);
+        } else {
+          throw new Error("No se recibió respuesta del servidor al registrar la mascota.");
+        }
       }
 
+      // Limpiar formulario
       setNewPet({
         name: "",
         breed: "",
@@ -168,39 +242,182 @@ export default function EmployeeDashboard({
         description: "",
         image: "",
       });
+
+      // Mostrar mensaje de éxito
+      setSuccessMessage("Mascota registrada exitosamente");
+      setTimeout(() => setSuccessMessage(null), 3000);
+      
     } catch (err) {
       console.error("Error al registrar mascota:", err);
+      console.error("Detalles del error:", err.details);
+      
+      let errorMessage = "Error al registrar la mascota.";
+      if (err.authError) {
+        errorMessage = "Sesión expirada. Por favor, inicia sesión nuevamente.";
+        // Redirigir al login después de un momento
+        setTimeout(() => {
+          window.location.href = '/login';
+        }, 2000);
+      } else if (err.message.includes("Failed to fetch")) {
+        errorMessage = "No se pudo conectar al servidor. Verifica que el backend esté ejecutándose.";
+      } else if (err.status === 400) {
+        errorMessage = "Datos inválidos. Verifica que todos los campos estén correctos.";
+      } else if (err.status === 500) {
+        errorMessage = "Error interno del servidor. Contacta al administrador.";
+      } else {
+        errorMessage = `${err.message}. Intenta de nuevo.`;
+      }
+      
+      setError(errorMessage);
     } finally {
       setIsSubmitting(false);
     }
   }
 
-  function handleCompleteAdoption(pet) {
-    if (pet.adopterId && onCompleteAdoption) {
-      onCompleteAdoption(pet.id, pet.adopterId);
-      return;
+  async function handleCompleteAdoption(pet) {
+    try {
+      if (pet.adoptador && onCompleteAdoption) {
+        onCompleteAdoption(pet.id, pet.adoptador.id);
+        return;
+      }
+      
+      console.log("Completando adopción para mascota:", pet);
+      
+      // Usar la API del backend
+      const updateData = {
+        petId: parseInt(pet.id),
+        adoptadorId: pet.adoptador?.id || 0,
+        nuevoEstado: "ADOPTADO"
+      };
+      
+      console.log("Datos de actualización para adopción:", updateData);
+      
+      await updatePet(pet.id, updateData);
+      
+      console.log("Adopción completada exitosamente");
+      
+      // Recargar la lista de mascotas
+      const updatedPets = await getAllPets();
+      setLocalPets(updatedPets || []);
+      
+      // Mostrar mensaje de éxito
+      setError(null);
+      setSuccessMessage("Adopción completada exitosamente");
+      setTimeout(() => setSuccessMessage(null), 3000);
+    } catch (err) {
+      console.error("Error al completar adopción:", err);
+      console.error("Detalles del error:", err.details);
+      
+      let errorMessage = "Error al completar la adopción.";
+      if (err.authError) {
+        errorMessage = "Sesión expirada. Por favor, inicia sesión nuevamente.";
+        setTimeout(() => {
+          window.location.href = '/login';
+        }, 2000);
+      } else {
+        errorMessage = `${err.message}. Intenta de nuevo.`;
+      }
+      setError(errorMessage);
     }
-    // Fallback demo: marcar como adoptado
-    setLocalPets((prev) =>
-      prev.map((p) =>
-        p.id === pet.id ? { ...p, status: "Adoptado" } : p
-      )
-    );
   }
 
   function handleEditPet(petId) {
-    if (onUpdatePet) {
-      onUpdatePet(petId, {});
+    // Obtener la mascota actual
+    const currentPet = localPets.find(p => p.id === petId);
+    if (!currentPet) {
+      console.error("Mascota no encontrada con ID:", petId);
+      setError("Mascota no encontrada.");
       return;
     }
-    // Fallback demo: alterna estado entre Disponible y En proceso de adopción
-    setLocalPets((prev) =>
-      prev.map((p) => {
-        if (p.id !== petId) return p;
-        const nextStatus = p.status === "Disponible" ? "En proceso de adopción" : "Disponible";
-        return { ...p, status: nextStatus };
-      })
-    );
+    
+    // Configurar el modal
+    setSelectedPet(currentPet);
+    setNewStatus(currentPet.estado);
+    setSelectedAdopterId(currentPet.adoptador?.id?.toString() || "");
+    setShowEditModal(true);
+  }
+
+  function handleShowPetDetails(pet) {
+    setSelectedPet(pet);
+    setShowPetDetailsModal(true);
+  }
+
+  async function handleUpdatePetStatus() {
+    if (!selectedPet || !newStatus) {
+      setError("Selecciona un estado válido.");
+      return;
+    }
+
+    // Validar que el estado sea diferente al actual
+    if (newStatus === selectedPet.estado) {
+      setError("El nuevo estado debe ser diferente al actual.");
+      return;
+    }
+
+    try {
+      if (onUpdatePet) {
+        onUpdatePet(selectedPet.id, {});
+        return;
+      }
+      
+      console.log("Actualizando mascota:", selectedPet.nombre, "a estado:", newStatus);
+      console.log("Mascota seleccionada:", selectedPet);
+      
+      // Validar que el petId sea un número válido
+      const petId = parseInt(selectedPet.id);
+      if (isNaN(petId)) {
+        setError("ID de mascota inválido.");
+        return;
+      }
+      
+      // Usar la API del backend con la estructura exacta requerida
+      const updateData = {
+        petId: petId,
+        adoptadorId: selectedAdopterId ? parseInt(selectedAdopterId) : 0,
+        nuevoEstado: newStatus
+      };
+      
+      console.log("Datos de actualización enviados al API:", updateData);
+      console.log("URL del endpoint:", `/pets/${selectedPet.id}`);
+      
+      await updatePet(selectedPet.id, updateData);
+      
+      console.log("Mascota actualizada exitosamente");
+      
+      // Recargar la lista de mascotas
+      const updatedPets = await getAllPets();
+      setLocalPets(updatedPets || []);
+      
+      // Cerrar modal y mostrar mensaje de éxito
+      setShowEditModal(false);
+      setSelectedPet(null);
+      setNewStatus("");
+      setSelectedAdopterId("");
+      setError(null);
+      setSuccessMessage("Estado de mascota actualizado exitosamente");
+      setTimeout(() => setSuccessMessage(null), 3000);
+    } catch (err) {
+      console.error("Error al actualizar mascota:", err);
+      console.error("Detalles del error:", err.details);
+      console.error("Status del error:", err.status);
+      
+      let errorMessage = "Error al actualizar la mascota.";
+      if (err.authError) {
+        errorMessage = "Sesión expirada. Por favor, inicia sesión nuevamente.";
+        setTimeout(() => {
+          window.location.href = '/login';
+        }, 2000);
+      } else if (err.status === 400) {
+        errorMessage = "Datos inválidos. Verifica la información enviada.";
+      } else if (err.status === 404) {
+        errorMessage = "Mascota no encontrada en el servidor.";
+      } else if (err.status === 500) {
+        errorMessage = "Error interno del servidor. Contacta al administrador.";
+      } else {
+        errorMessage = `${err.message}. Intenta de nuevo.`;
+      }
+      setError(errorMessage);
+    }
   }
 
   return (
@@ -234,22 +451,101 @@ export default function EmployeeDashboard({
           {/* Stats */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
             <div className="text-center p-6 bg-gradient-to-br from-green-50 to-green-100 rounded-2xl">
-              <div className="text-3xl font-bold text-green-600 mb-2">{availablePets.length}</div>
+              <div className="text-3xl font-bold text-green-600 mb-2">
+                {isLoading ? "..." : availablePets.length}
+              </div>
               <div className="text-sm text-green-700 font-medium">Disponibles</div>
             </div>
             <div className="text-center p-6 bg-gradient-to-br from-yellow-50 to-yellow-100 rounded-2xl">
-              <div className="text-3xl font-bold text-yellow-600 mb-2">{inProcessPets.length}</div>
+              <div className="text-3xl font-bold text-yellow-600 mb-2">
+                {isLoading ? "..." : inProcessPets.length}
+              </div>
               <div className="text-sm text-yellow-700 font-medium">En Proceso</div>
             </div>
             <div className="text-center p-6 bg-gradient-to-br from-purple-50 to-purple-100 rounded-2xl">
-              <div className="text-3xl font-bold text-purple-600 mb-2">{adoptedPets.length}</div>
+              <div className="text-3xl font-bold text-purple-600 mb-2">
+                {isLoading ? "..." : adoptedPets.length}
+              </div>
               <div className="text-sm text-purple-700 font-medium">Adoptados</div>
             </div>
             <div className="text-center p-6 bg-gradient-to-br from-blue-50 to-blue-100 rounded-2xl">
-              <div className="text-3xl font-bold text-blue-600 mb-2">{localPets.length}</div>
+              <div className="text-3xl font-bold text-blue-600 mb-2">
+                {isLoading ? "..." : localPets.length}
+              </div>
               <div className="text-sm text-blue-700 font-medium">Total Registrados</div>
             </div>
           </div>
+
+          {/* Success Alert */}
+          {successMessage && (
+            <div className="mb-6 rounded-2xl border-0 bg-gradient-to-r from-green-50 to-emerald-50 shadow-lg">
+              <div className="p-4">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-green-100">
+                    <CheckCircle2 className="h-4 w-4 text-green-600" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-green-700 text-sm">{successMessage}</p>
+                  </div>
+                  <button
+                    onClick={() => setSuccessMessage(null)}
+                    className="text-green-700 hover:text-green-800 text-lg leading-none"
+                    aria-label="Cerrar notificación"
+                  >
+                    ×
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Error Alert */}
+          {error && (
+            <div className="mb-6 rounded-2xl border-0 bg-gradient-to-r from-red-50 to-pink-50 shadow-lg">
+              <div className="p-4">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-red-100">
+                    <span className="text-red-600 text-sm">⚠</span>
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-red-700 text-sm">{error}</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => {
+                        setError(null);
+                        // Recargar mascotas
+                        const loadPets = async () => {
+                          try {
+                            setIsLoading(true);
+                            setError(null);
+                            const petsData = await getAllPets();
+                            setLocalPets(petsData || []);
+                          } catch (err) {
+                            console.error("Error al recargar mascotas:", err);
+                            setError("Error al recargar las mascotas. Intenta de nuevo.");
+                          } finally {
+                            setIsLoading(false);
+                          }
+                        };
+                        loadPets();
+                      }}
+                      className="text-red-700 hover:text-red-800 text-sm font-medium"
+                    >
+                      Reintentar
+                    </button>
+                    <button
+                      onClick={() => setError(null)}
+                      className="text-red-700 hover:text-red-800 text-lg leading-none"
+                      aria-label="Cerrar notificación"
+                    >
+                      ×
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Tabs (Tailwind simple) */}
@@ -295,8 +591,8 @@ export default function EmployeeDashboard({
                       <div className="flex-1">
                         <h3 className="text-lg font-bold text-green-900 mb-1">¡Mascota registrada exitosamente!</h3>
                         <p className="text-green-700">
-                          <strong>{lastRegistered.name}</strong> ha sido registrada con fecha{" "}
-                          <strong>{new Date(lastRegistered.admissionDate).toLocaleDateString("es-MX")}</strong>
+                          <strong>{lastRegistered.nombre}</strong> ha sido registrada con fecha{" "}
+                          <strong>{new Date(lastRegistered.fechaIngreso).toLocaleDateString("es-MX")}</strong>
                         </p>
                       </div>
                       <button
@@ -531,94 +827,391 @@ export default function EmployeeDashboard({
                   </div>
 
                   <div className="overflow-x-auto">
-                    <table className="w-full border-collapse text-sm">
-                      <thead>
-                        <tr className="bg-gray-50 text-left">
-                          <th className="px-4 py-3 font-semibold">Mascota</th>
-                          <th className="px-4 py-3 font-semibold">Raza</th>
-                          <th className="px-4 py-3 font-semibold">Categoría</th>
-                          <th className="px-4 py-3 font-semibold">Estado</th>
-                          <th className="px-4 py-3 font-semibold">Adoptador</th>
-                          <th className="px-4 py-3 font-semibold">Fecha Ingreso</th>
-                          <th className="px-4 py-3 font-semibold">Acciones</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {localPets.map((pet) => (
-                          <tr key={pet.id} className=" hover:bg-gray-50">
-                            <td className="px-4 py-3">
-                              <div className="flex items-center gap-3">
-                                <img
-                                  src={pet.image || "/placeholder.svg"}
-                                  alt={pet.name}
-                                  className="hidden md:block h-10 w-10 rounded-full object-cover"
-                                />
-                                <div>
-                                  <div className="font-semibold text-gray-900">{pet.name}</div>
+                    {isLoading ? (
+                      <div className="py-12 text-center">
+                        <div className="mx-auto mb-6 flex h-24 w-24 items-center justify-center rounded-full bg-gray-100">
+                          <Clock className="h-12 w-12 text-gray-400 animate-spin" />
+                        </div>
+                        <h3 className="mb-2 text-xl font-semibold text-gray-800">Cargando mascotas...</h3>
+                        <p className="text-gray-600">Espera un momento mientras obtenemos la información</p>
+                      </div>
+                    ) : (
+                      <>
+                        <table className="w-full border-collapse text-sm">
+                          <thead>
+                            <tr className="bg-gray-50 text-left">
+                              <th className="px-4 py-3 font-semibold">Mascota</th>
+                              <th className="px-4 py-3 font-semibold">Raza</th>
+                              <th className="px-4 py-3 font-semibold">Categoría</th>
+                              <th className="px-4 py-3 font-semibold">Estado</th>
+                              <th className="px-4 py-3 font-semibold">Adoptador</th>
+                              <th className="px-4 py-3 font-semibold">Fecha Ingreso</th>
+                              <th className="px-4 py-3 font-semibold">Acciones</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                                                    {localPets.map((pet) => (
+                          <tr 
+                            key={pet.id} 
+                            className="hover:bg-gray-50 cursor-pointer transition-colors"
+                            onClick={() => handleShowPetDetails(pet)}
+                          >
+                                <td className="px-4 py-3">
+                                  <div className="flex items-center gap-3">
+                                    <img
+                                      src={pet.image || "/placeholder.svg"}
+                                      alt={pet.nombre}
+                                      className="hidden md:block h-10 w-10 rounded-full object-cover"
+                                    />
+                                                                    <div>
+                                  <div className="font-semibold text-gray-900">{pet.nombre}</div>
                                   <div className="text-gray-500">
-                                    {pet.weight} kg • {pet.height} m
+                                    {pet.peso} kg • {pet.estatura} m
                                   </div>
                                 </div>
-                              </div>
-                            </td>
-                            <td className="px-4 py-3 font-medium">{pet.breed}</td>
+                                  </div>
+                                </td>
+                                                            <td className="px-4 py-3 font-medium">{pet.raza}</td>
                             <td className="px-4 py-3">
                               <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium bg-gray-50">
-                                {pet.category}
+                                {pet.categoria?.nombre || "Sin categoría"}
                               </span>
                             </td>
                             <td className="px-4 py-3">
-                              <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${getStatusColor(pet.status)}`}>
-                                {pet.status}
+                              <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${getStatusColor(pet.estado)}`}>
+                                {pet.estado}
                               </span>
                             </td>
-                            <td className="px-4 py-3">{getAdopterName(pet.adopterId)}</td>
+                            <td className="px-4 py-3">{getAdopterName(pet.adoptador)}</td>
                             <td className="px-4 py-3">
-                              {pet.admissionDate
-                                ? new Date(pet.admissionDate).toLocaleDateString("es-MX")
+                              {pet.fechaIngreso
+                                ? new Date(pet.fechaIngreso).toLocaleDateString("es-MX")
                                 : "-"}
                             </td>
-                            <td className="px-4 py-3">
-                              <div className="flex items-center gap-2">
-                                {pet.status === "En proceso de adopción" && (
-                                  <button
-                                    onClick={() => handleCompleteAdoption(pet)}
+                                <td className="px-4 py-3">
+                                  <div className="flex items-center gap-2">
+                                    {pet.estado === "EN_PROCESO_ADOPCION" && (
+                                                                        <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleCompleteAdoption(pet);
+                                    }}
                                     className="inline-flex items-center gap-1 rounded-md bg-green-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-green-600"
                                   >
                                     <CheckCircle2 className="h-3 w-3" />
                                     Completar
                                   </button>
-                                )}
-                                <button
-                                  onClick={() => handleEditPet(pet.id)}
+                                    )}
+                                                                    <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleEditPet(pet.id);
+                                  }}
                                   className="inline-flex items-center gap-1 rounded-md border border-gray-300 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50"
                                 >
                                   <Edit className="h-3 w-3" />
                                   Editar
                                 </button>
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                                  </div>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
 
-                  {localPets.length === 0 && (
-                    <div className="py-12 text-center">
-                      <div className="mx-auto mb-6 flex h-24 w-24 items-center justify-center rounded-full bg-gray-100">
-                        <PawPrint className="h-12 w-12 text-gray-400" />
-                      </div>
-                      <h3 className="mb-2 text-xl font-semibold text-gray-800">No hay mascotas registradas</h3>
-                      <p className="text-gray-600">Comienza registrando la primera mascota del centro</p>
-                    </div>
-                  )}
+                        {localPets.length === 0 && !isLoading && (
+                          <div className="py-12 text-center">
+                            <div className="mx-auto mb-6 flex h-24 w-24 items-center justify-center rounded-full bg-gray-100">
+                              <PawPrint className="h-12 w-12 text-gray-400" />
+                            </div>
+                            <h3 className="mb-2 text-xl font-semibold text-gray-800">No hay mascotas registradas</h3>
+                            <p className="text-gray-600">Comienza registrando la primera mascota del centro</p>
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
           )}
         </div>
       </div>
+
+            {/* Modal de Edición */}
+      <AnimatePresence>
+        {showEditModal && selectedPet && (
+          <motion.div
+            className="fixed inset-0 backdrop-blur-sm bg-white/30 flex items-center justify-center z-50"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+          >
+            <motion.div
+              className="bg-white rounded-2xl p-8 max-w-lg w-full mx-4 shadow-2xl border border-gray-200"
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              transition={{
+                type: "spring",
+                damping: 25,
+                stiffness: 300,
+                duration: 0.3
+              }}
+            >
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-xl font-bold text-gray-900">
+                  Editar Estado de Mascota
+                </h3>
+                <button
+                  onClick={() => {
+                    setShowEditModal(false);
+                    setSelectedPet(null);
+                    setNewStatus("");
+                    setSelectedAdopterId("");
+                  }}
+                  className="text-gray-400 hover:text-gray-600 text-2xl"
+                >
+                  ×
+                </button>
+              </div>
+
+              <div className="mb-6">
+                <div className="flex items-center gap-3 mb-4">
+                  <img
+                    src={selectedPet.image || "/placeholder.svg"}
+                    alt={selectedPet.nombre}
+                    className="h-12 w-12 rounded-full object-cover"
+                  />
+                  <div>
+                    <h4 className="font-semibold text-gray-900">{selectedPet.nombre}</h4>
+                    <p className="text-sm text-gray-500">{selectedPet.raza}</p>
+                  </div>
+                </div>
+
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Estado Actual
+                  </label>
+                  <span className={`inline-flex items-center rounded-full border px-3 py-1 text-sm font-medium ${getStatusColor(selectedPet.estado)}`}>
+                    {selectedPet.estado}
+                  </span>
+                </div>
+
+                <div className="mb-4">
+                  <label htmlFor="newStatus" className="block text-sm font-medium text-gray-700 mb-2">
+                    Nuevo Estado
+                  </label>
+                  <select
+                    id="newStatus"
+                    value={newStatus}
+                    onChange={(e) => setNewStatus(e.target.value)}
+                    className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm outline-none focus:border-gray-400 focus:ring-2 focus:ring-gray-200"
+                  >
+                    <option value="">Selecciona un estado</option>
+                    <option value="DISPONIBLE">DISPONIBLE</option>
+                    <option value="EN_PROCESO_ADOPCION">EN PROCESO</option>
+                    <option value="ADOPTADO">ADOPTADO</option>
+                  </select>
+                </div>
+
+                <div className="mb-6">
+                  <label htmlFor="adopter" className="block text-sm font-medium text-gray-700 mb-2">
+                    Adoptador (opcional)
+                  </label>
+                  <select
+                    id="adopter"
+                    value={selectedAdopterId}
+                    onChange={(e) => setSelectedAdopterId(e.target.value)}
+                    className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm outline-none focus:border-gray-400 focus:ring-2 focus:ring-gray-200"
+                  >
+                    <option value="">Sin adoptador</option>
+                    {adopters.map((adopter) => (
+                      <option key={adopter.id} value={adopter.id}>
+                        {adopter.user?.nombre || `Adoptador ${adopter.id}`}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => {
+                    setShowEditModal(false);
+                    setSelectedPet(null);
+                    setNewStatus("");
+                    setSelectedAdopterId("");
+                  }}
+                  className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={() => {
+                    console.log("Botón Actualizar Estado clickeado");
+                    console.log("selectedPet:", selectedPet);
+                    console.log("newStatus:", newStatus);
+                    handleUpdatePetStatus();
+                  }}
+                  disabled={!newStatus || newStatus === selectedPet.estado}
+                  className="flex-1 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  Actualizar Estado
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Modal de Detalles de Mascota */}
+      <AnimatePresence>
+        {showPetDetailsModal && selectedPet && (
+          <motion.div
+            className="fixed inset-0 backdrop-blur-sm bg-white/30 flex items-center justify-center z-50"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+          >
+            <motion.div
+              className="bg-white rounded-2xl p-8 max-w-2xl w-full mx-4 shadow-2xl border border-gray-200"
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              transition={{
+                type: "spring",
+                damping: 25,
+                stiffness: 300,
+                duration: 0.3
+              }}
+            >
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-2xl font-bold text-gray-900">
+                  Detalles de la Mascota
+                </h3>
+                <button
+                  onClick={() => {
+                    setShowPetDetailsModal(false);
+                    setSelectedPet(null);
+                  }}
+                  className="text-gray-400 hover:text-gray-600 text-2xl"
+                >
+                  ×
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                {/* Imagen y información básica */}
+                <div>
+                  <div className="mb-6">
+                    <img
+                      src={selectedPet.image || "/placeholder.svg"}
+                      alt={selectedPet.nombre}
+                      className="w-full h-64 object-cover rounded-xl shadow-lg"
+                    />
+                  </div>
+                  
+                  <div className="space-y-4">
+                    <div>
+                      <h4 className="text-3xl font-bold text-gray-900 mb-2">{selectedPet.nombre}</h4>
+                      <p className="text-lg text-gray-600">{selectedPet.raza}</p>
+                    </div>
+                    
+                    <div className="flex items-center gap-2">
+                      <span className={`inline-flex items-center rounded-full border px-3 py-1 text-sm font-medium ${getStatusColor(selectedPet.estado)}`}>
+                        {selectedPet.estado}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Información detallada */}
+                <div className="space-y-6">
+                  <div>
+                    <h5 className="text-lg font-semibold text-gray-900 mb-4">Información General</h5>
+                    <div className="space-y-3">
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Categoría:</span>
+                        <span className="font-medium">{selectedPet.categoria?.nombre || "Sin categoría"}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Color:</span>
+                        <span className="font-medium">{selectedPet.color}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Peso:</span>
+                        <span className="font-medium">{selectedPet.peso} kg</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Estatura:</span>
+                        <span className="font-medium">{selectedPet.estatura} m</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Fecha de ingreso:</span>
+                        <span className="font-medium">
+                          {selectedPet.fechaIngreso ? new Date(selectedPet.fechaIngreso).toLocaleDateString("es-MX") : "No disponible"}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <h5 className="text-lg font-semibold text-gray-900 mb-4">Descripción</h5>
+                    <p className="text-gray-700 leading-relaxed">
+                      {selectedPet.descripcion || "No hay descripción disponible."}
+                    </p>
+                  </div>
+
+                  {selectedPet.adoptador && (
+                    <div>
+                      <h5 className="text-lg font-semibold text-gray-900 mb-4">Información del Adoptador</h5>
+                      <div className="bg-gray-50 rounded-lg p-4">
+                        <div className="space-y-2">
+                          <div className="flex justify-between">
+                            <span className="text-gray-600">Nombre:</span>
+                            <span className="font-medium">{selectedPet.adoptador.user?.nombre || "No disponible"}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-gray-600">Teléfono:</span>
+                            <span className="font-medium">{selectedPet.adoptador.telefono || "No disponible"}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-gray-600">Dirección:</span>
+                            <span className="font-medium">{selectedPet.adoptador.direccion || "No disponible"}</span>
+                          </div>
+                          {selectedPet.fechaAdopcion && (
+                            <div className="flex justify-between">
+                              <span className="text-gray-600">Fecha de adopción:</span>
+                              <span className="font-medium">
+                                {new Date(selectedPet.fechaAdopcion).toLocaleDateString("es-MX")}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="mt-8 flex justify-end">
+                <button
+                  onClick={() => {
+                    setShowPetDetailsModal(false);
+                    setSelectedPet(null);
+                  }}
+                  className="px-6 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 transition-colors"
+                >
+                  Cerrar
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
