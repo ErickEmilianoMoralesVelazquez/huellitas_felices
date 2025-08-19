@@ -46,6 +46,7 @@ export default function AdopterProfile() {
 
       // Obtener datos del usuario actual
       const userResponse = await getCurrentUser();
+      console.log("Respuesta de getCurrentUser:", userResponse);
       setCurrentUser(userResponse);
 
       // Obtener adopciones del usuario
@@ -122,15 +123,6 @@ export default function AdopterProfile() {
     <div className="min-h-screen bg-gray-50">
       <main className="mx-auto max-w-6xl px-4 py-8">
         {/* Header con botón de logout */}
-        <div className="mb-4 flex justify-end">
-          <button
-            onClick={handleLogout}
-            className="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm bg-gray-100 hover:bg-gray-200 text-gray-700"
-          >
-            <LogOut className="h-4 w-4" />
-            Cerrar sesión
-          </button>
-        </div>
 
         {/* HERO con fondo degradado + avatar sobrepuesto */}
         <div className="relative mb-16">
@@ -139,7 +131,11 @@ export default function AdopterProfile() {
             {/* Avatar */}
             <div className="relative h-24 w-24 overflow-hidden rounded-full border-4 border-white shadow-xl sm:h-28 sm:w-28">
               <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-blue-500 to-purple-600 text-2xl font-bold text-white">
-                {getInitials(currentUser.nombre)}
+                {getInitials(
+                  currentUser?.adopter?.user?.nombre ||
+                    currentUser?.nombre ||
+                    ""
+                )}
               </div>
               <div className="absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full border-2 border-white bg-green-500">
                 <CheckCircle2 className="h-4 w-4 text-white" />
@@ -149,7 +145,9 @@ export default function AdopterProfile() {
             {/* Nombre + badges */}
             <div className="pb-2">
               <h1 className="text-2xl font-bold text-white mb-5 sm:text-3xl">
-                {currentUser.nombre}
+                {currentUser?.adopter?.user?.nombre ||
+                  currentUser?.nombre ||
+                  "Usuario"}
               </h1>
               <div className="mt-2 flex flex-wrap items-center gap-2">
                 <span className="inline-flex items-center gap-1 rounded-full border border-green-200 bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-800">
@@ -248,7 +246,9 @@ export default function AdopterProfile() {
                         Correo electrónico
                       </p>
                       <p className="font-semibold text-gray-900">
-                        {currentUser.correo}
+                        {currentUser?.adopter?.user?.correo ||
+                          currentUser?.correo ||
+                          "No disponible"}
                       </p>
                     </div>
                   </div>
@@ -262,7 +262,9 @@ export default function AdopterProfile() {
                         Teléfono
                       </p>
                       <p className="font-semibold text-gray-900">
-                        {currentUser.telefono}
+                        {currentUser?.adopter?.telefono ||
+                          currentUser?.telefono ||
+                          "No disponible"}
                       </p>
                     </div>
                   </div>
@@ -276,7 +278,9 @@ export default function AdopterProfile() {
                         Dirección
                       </p>
                       <p className="font-semibold text-gray-900">
-                        {currentUser.direccion}
+                        {currentUser?.adopter?.direccion ||
+                          currentUser?.direccion ||
+                          "No disponible"}
                       </p>
                     </div>
                   </div>
@@ -367,9 +371,18 @@ export default function AdopterProfile() {
                           >
                             <div className="overflow-hidden rounded-2xl border-0 bg-white shadow-lg transition hover:shadow-xl">
                               <div className="relative">
-                                <div className="h-48 w-full bg-gradient-to-br from-[#ffd6a7] to-[#ff6900] flex items-center justify-center">
-                                  <span className="text-6xl">🐾</span>
-                                </div>
+                                {adoption.pet?.img ? (
+                                  <img
+                                    src={adoption.pet.img}
+                                    alt={adoption.pet?.nombre || "Mascota"}
+                                    className="h-48 w-full object-cover"
+                                    loading="lazy"
+                                  />
+                                ) : (
+                                  <div className="h-48 w-full bg-gradient-to-br from-[#ffd6a7] to-[#ff6900] flex items-center justify-center">
+                                    <span className="text-6xl">🐾</span>
+                                  </div>
+                                )}
                                 <div className="absolute top-4 right-4">
                                   <span className="inline-flex items-center gap-1 rounded-full bg-yellow-500 px-2.5 py-0.5 text-xs font-medium text-white shadow">
                                     <Clock className="h-3 w-3" />
@@ -459,9 +472,18 @@ export default function AdopterProfile() {
                           >
                             <div className="overflow-hidden rounded-2xl border-0 bg-gradient-to-br from-green-50 to-emerald-50 shadow-lg transition hover:shadow-xl">
                               <div className="relative">
-                                <div className="h-48 w-full bg-gradient-to-br from-green-200 to-green-400 flex items-center justify-center">
-                                  <span className="text-6xl">🐾</span>
-                                </div>
+                                {adoption.pet?.img ? (
+                                  <img
+                                    src={adoption.pet.img}
+                                    alt={adoption.pet?.nombre || "Mascota"}
+                                    className="h-48 w-full object-cover"
+                                    loading="lazy"
+                                  />
+                                ) : (
+                                  <div className="h-48 w-full bg-gradient-to-br from-green-200 to-green-400 flex items-center justify-center">
+                                    <span className="text-6xl">🐾</span>
+                                  </div>
+                                )}
                                 <div className="absolute top-4 right-4">
                                   <span className="inline-flex items-center gap-1 rounded-full bg-green-500 px-2.5 py-0.5 text-xs font-medium text-white shadow">
                                     <CheckCircle2 className="h-3 w-3" />

@@ -24,6 +24,7 @@ import {
   updatePetStatus,
   getAllAdopters,
   isAuthenticated,
+  getCurrentUser,
 } from "../lib/api";
 
 const SAMPLE_USERS = [
@@ -38,6 +39,8 @@ export default function EmployeeDashboard({
   onCompleteAdoption,
 }) {
   const [tab, setTab] = useState("register");
+  console.log(currentUser);
+
   const [newPet, setNewPet] = useState({
     name: "",
     breed: "",
@@ -59,16 +62,18 @@ export default function EmployeeDashboard({
   const [newStatus, setNewStatus] = useState("");
   const [adopters, setAdopters] = useState([]);
   const [selectedAdopterId, setSelectedAdopterId] = useState("");
+  const [currentUserData, setCurrentUserData] = useState(null);
 
-  const safeUser = currentUser ?? {
-    id: "demo-employee",
-    name: "Empleado Demo",
-    role: "employee",
-  };
+  const safeUser = currentUserData ||
+    currentUser || {
+      id: "demo-employee",
+      name: "Empleado Demo",
+      role: "employee",
+    };
 
   const [localPets, setLocalPets] = useState([]);
 
-  // Cargar mascotas y adoptadores del backend
+  // Cargar datos del usuario, mascotas y adoptadores del backend
   useEffect(() => {
     const loadData = async () => {
       try {
@@ -84,16 +89,19 @@ export default function EmployeeDashboard({
         setIsLoading(true);
         setError(null);
 
-        // Cargar mascotas y adoptadores en paralelo
+        // Cargar usuario actual, mascotas y adoptadores en paralelo
         console.log("Cargando datos desde:", import.meta.env.VITE_SERVER_IP);
-        const [petsData, adoptersData] = await Promise.all([
+        const [userData, petsData, adoptersData] = await Promise.all([
+          getCurrentUser(),
           getAllPets(),
           getAllAdopters(),
         ]);
 
+        console.log("Usuario actual recibido:", userData);
         console.log("Mascotas recibidas:", petsData);
         console.log("Adoptadores recibidos:", adoptersData);
 
+        setCurrentUserData(userData);
         setLocalPets(petsData || []);
         setAdopters(adoptersData || []);
       } catch (err) {
@@ -193,6 +201,52 @@ export default function EmployeeDashboard({
         return;
       }
 
+      // Validar longitud del nombre (3-50 caracteres)
+      if (newPet.name.trim().length < 3 || newPet.name.trim().length > 50) {
+        setError("El nombre debe tener entre 3 y 50 caracteres.");
+        return;
+      }
+
+      // Validar longitud de la raza (3-50 caracteres)
+      if (newPet.breed.trim().length < 3 || newPet.breed.trim().length > 50) {
+        setError("La raza debe tener entre 3 y 50 caracteres.");
+        return;
+      }
+
+      // Validar longitud del color (3-40 caracteres)
+      if (newPet.color.trim().length < 3 || newPet.color.trim().length > 40) {
+        setError("El color debe tener entre 3 y 40 caracteres.");
+        return;
+      }
+
+      // Validar longitud de la descripción (10-500 caracteres)
+      if (
+        newPet.description.trim().length < 10 ||
+        newPet.description.trim().length > 500
+      ) {
+        setError("La descripción debe tener entre 10 y 500 caracteres.");
+        return;
+      }
+
+      // Validar URL de imagen si se proporciona
+      if (newPet.image.trim()) {
+        try {
+          new URL(newPet.image.trim());
+        } catch (error) {
+          setError(
+            "La URL de imagen no es válida. Debe ser una URL completa (ej: https://ejemplo.com/imagen.jpg)"
+          );
+          return;
+        }
+
+        if (newPet.image.trim().length > 500) {
+          setError(
+            "La URL de imagen es demasiado larga. Máximo 500 caracteres."
+          );
+          return;
+        }
+      }
+
       // Validar que peso y estatura sean números válidos
       const peso = parseFloat(newPet.weight);
       const estatura = parseFloat(newPet.height);
@@ -228,6 +282,7 @@ export default function EmployeeDashboard({
         peso: peso,
         estatura: estatura,
         descripcion: newPet.description.trim(),
+        img: newPet.image.trim() || null, // Campo correcto según tu API
       };
 
       console.log("Datos a enviar al API:", petData);
@@ -460,7 +515,13 @@ export default function EmployeeDashboard({
           <div className="relative inline-block mb-6">
             <div className="relative inline-flex h-24 w-24 items-center justify-center overflow-hidden rounded-full bg-gray-200 border-4 border-white shadow-lg">
               <span className="flex h-full w-full items-center justify-center text-2xl font-bold text-white bg-gradient-to-br from-green-500 to-blue-600">
-                {getInitials(safeUser.name)}
+                {getInitials(
+                  safeUser?.adopter?.user?.nombre ||
+                    safeUser?.user?.nombre ||
+                    safeUser?.nombre ||
+                    safeUser?.name ||
+                    ""
+                )}
               </span>
             </div>
             <div className="absolute -bottom-2 -right-2 flex h-8 w-8 items-center justify-center rounded-full bg-blue-500 border-2 border-white">
@@ -469,7 +530,11 @@ export default function EmployeeDashboard({
           </div>
 
           <h1 className="text-4xl font-bold text-gray-900 mb-2">
-            {safeUser.name}
+            {safeUser?.adopter?.user?.nombre ||
+              safeUser?.user?.nombre ||
+              safeUser?.nombre ||
+              safeUser?.name ||
+              "Empleado"}
           </h1>
           <div className="flex items-center justify-center gap-3 mb-6 flex-wrap">
             <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium bg-blue-100 text-blue-800 border-blue-200">
@@ -984,7 +1049,7 @@ export default function EmployeeDashboard({
                                 <td className="px-4 py-3">
                                   <div className="flex items-center gap-3">
                                     <img
-                                      src={pet.image || "/placeholder.svg"}
+                                      src={pet.img || "/placeholder.svg"}
                                       alt={pet.nombre}
                                       className="hidden md:block h-10 w-10 rounded-full object-cover"
                                     />
@@ -1121,7 +1186,7 @@ export default function EmployeeDashboard({
               <div className="mb-6">
                 <div className="flex items-center gap-3 mb-4">
                   <img
-                    src={selectedPet.image || "/placeholder.svg"}
+                    src={selectedPet.img || "/placeholder.svg"}
                     alt={selectedPet.nombre}
                     className="h-12 w-12 rounded-full object-cover"
                   />
@@ -1261,7 +1326,7 @@ export default function EmployeeDashboard({
                 <div>
                   <div className="mb-6">
                     <img
-                      src={selectedPet.image || "/placeholder.svg"}
+                      src={selectedPet.img || "/placeholder.svg"}
                       alt={selectedPet.nombre}
                       className="w-full h-64 object-cover rounded-xl shadow-lg"
                     />

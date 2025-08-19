@@ -16,7 +16,7 @@ const CatalogCards = ({
   estatura,
   descripcion,
   estado,
-  imagen,
+  img,
   fetchPets,
 }) => {
   const navigate = useNavigate();
@@ -32,7 +32,9 @@ const CatalogCards = ({
 
     // ✅ Validar sesión ANTES de abrir el modal
     if (!isAuthenticated()) {
-      toast.error("Debes iniciar sesión o crear una cuenta para adoptar una mascota.");
+      toast.error(
+        "Debes iniciar sesión o crear una cuenta para adoptar una mascota."
+      );
       navigate("/login");
       return;
     }
@@ -48,7 +50,9 @@ const CatalogCards = ({
 
     // ✅ Revalidar sesión por si el token expiró
     if (!isAuthenticated()) {
-      toast.error("Tu sesión ha expirado. Inicia sesión para enviar la solicitud.");
+      toast.error(
+        "Tu sesión ha expirado. Inicia sesión para enviar la solicitud."
+      );
       navigate("/login");
       return;
     }
@@ -72,7 +76,9 @@ const CatalogCards = ({
 
       // Mensajes claros cuando no hay cuenta o sesión inválida
       if (error?.status === 400 || error?.status === 403 || error?.authError) {
-        toast.error("Necesitas una cuenta para adoptar una mascota. Inicia sesión primero.");
+        toast.error(
+          "Necesitas una cuenta para adoptar una mascota. Inicia sesión primero."
+        );
         navigate("/login");
         return;
       }
@@ -142,9 +148,9 @@ const CatalogCards = ({
     >
       {/* Imagen */}
       <div className="relative h-64 overflow-hidden">
-        {imagen ? (
+        {img ? (
           <img
-            src={imagen}
+            src={img}
             alt={nombre}
             className="w-full h-full object-cover"
             loading="lazy"
@@ -177,7 +183,8 @@ const CatalogCards = ({
         <p className="text-sm text-gray-600 mb-2">{raza}</p>
         <p className="text-sm text-gray-500 mb-2">Color: {color || "N/D"}</p>
         <p className="text-sm text-gray-500 mb-4">
-          {(peso ?? "N/D")} kg • {typeof estatura === "number" ? `${estatura} m` : "N/D"} de altura
+          {peso ?? "N/D"} kg •{" "}
+          {typeof estatura === "number" ? `${estatura} m` : "N/D"} de altura
         </p>
 
         <p className="text-sm text-gray-700 mb-4 line-clamp-3">{descripcion}</p>
