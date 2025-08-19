@@ -1,8 +1,10 @@
+// src/components/catalogCards.jsx
 import { Button } from "@headlessui/react";
 import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { createAdoption } from "../lib/api";
+import { createAdoption, isAuthenticated } from "../lib/api";
 import { toast } from "react-hot-toast";
+import { useNavigate } from "react-router-dom";
 
 const CatalogCards = ({
   id,
@@ -17,15 +19,24 @@ const CatalogCards = ({
   imagen,
   fetchPets,
 }) => {
+  const navigate = useNavigate();
   const [isAdopting, setIsAdopting] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [motivoAdopcion, setMotivoAdopcion] = useState("");
 
-  // Determinar si el usuario puede adoptar (simulado por ahora)
+  // Determinar si el usuario puede adoptar (por estado de la mascota)
   const canAdopt = estado === "DISPONIBLE";
 
   const handleAdopt = () => {
     if (!canAdopt) return;
+
+    // ✅ Validar sesión ANTES de abrir el modal
+    if (!isAuthenticated()) {
+      toast.error("Debes iniciar sesión o crear una cuenta para adoptar una mascota.");
+      navigate("/login");
+      return;
+    }
+
     setShowModal(true);
   };
 
@@ -35,21 +46,38 @@ const CatalogCards = ({
       return;
     }
 
+    // ✅ Revalidar sesión por si el token expiró
+    if (!isAuthenticated()) {
+      toast.error("Tu sesión ha expirado. Inicia sesión para enviar la solicitud.");
+      navigate("/login");
+      return;
+    }
+
     setIsAdopting(true);
     try {
       await createAdoption({
         petId: id,
         motivoAdopcion: motivoAdopcion.trim(),
       });
+
       toast.success("¡Solicitud de adopción enviada correctamente!");
       setShowModal(false);
       setMotivoAdopcion("");
-      if (fetchPets) fetchPets(); // Actualizar la lista
+
+      if (typeof fetchPets === "function") {
+        await fetchPets(); // Actualizar la lista
+      }
     } catch (error) {
       console.error("Error creating adoption:", error);
-      toast.error(
-        error?.message || "Error al enviar la solicitud. ¿Has iniciado sesión?"
-      );
+
+      // Mensajes claros cuando no hay cuenta o sesión inválida
+      if (error?.status === 400 || error?.status === 403 || error?.authError) {
+        toast.error("Necesitas una cuenta para adoptar una mascota. Inicia sesión primero.");
+        navigate("/login");
+        return;
+      }
+
+      toast.error(error?.message || "Error al enviar la solicitud.");
     } finally {
       setIsAdopting(false);
     }
@@ -60,12 +88,10 @@ const CatalogCards = ({
     setMotivoAdopcion("");
   };
 
-  // Cerrar modal con Escape
+  // Cerrar modal con Escape y bloquear scroll
   useEffect(() => {
     const handleEscape = (e) => {
-      if (e.key === "Escape" && showModal) {
-        handleCloseModal();
-      }
+      if (e.key === "Escape" && showModal) handleCloseModal();
     };
 
     if (showModal) {
@@ -84,6 +110,7 @@ const CatalogCards = ({
       case "DISPONIBLE":
         return "bg-green-500";
       case "EN_PROCESO_ADOPCION":
+      case "PENDIENTE":
         return "bg-yellow-500";
       case "ADOPTADO":
         return "bg-gray-500";
@@ -97,13 +124,15 @@ const CatalogCards = ({
       case "DISPONIBLE":
         return "Disponible";
       case "EN_PROCESO_ADOPCION":
+      case "PENDIENTE":
         return "En proceso";
       case "ADOPTADO":
         return "Adoptado";
       default:
-        return estado;
+        return estado || "Estado";
     }
   };
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -113,9 +142,18 @@ const CatalogCards = ({
     >
       {/* Imagen */}
       <div className="relative h-64 overflow-hidden">
-        <div className="w-full h-full bg-gradient-to-br from-[#ffd6a7] to-[#ff6900] flex items-center justify-center">
-          <span className="text-6xl">🐾</span>
-        </div>
+        {imagen ? (
+          <img
+            src={imagen}
+            alt={nombre}
+            className="w-full h-full object-cover"
+            loading="lazy"
+          />
+        ) : (
+          <div className="w-full h-full bg-gradient-to-br from-[#ffd6a7] to-[#ff6900] flex items-center justify-center">
+            <span className="text-6xl">🐾</span>
+          </div>
+        )}
 
         {/* Estado badge */}
         <div className="absolute top-3 left-3">
@@ -137,9 +175,9 @@ const CatalogCards = ({
         </div>
 
         <p className="text-sm text-gray-600 mb-2">{raza}</p>
-        <p className="text-sm text-gray-500 mb-2">Color: {color}</p>
+        <p className="text-sm text-gray-500 mb-2">Color: {color || "N/D"}</p>
         <p className="text-sm text-gray-500 mb-4">
-          {peso} kg • {estatura}m de altura
+          {(peso ?? "N/D")} kg • {typeof estatura === "number" ? `${estatura} m` : "N/D"} de altura
         </p>
 
         <p className="text-sm text-gray-700 mb-4 line-clamp-3">{descripcion}</p>
