@@ -112,6 +112,9 @@ export const isAuthenticated = () => {
   return !!token;
 };
 
+// Función para obtener el perfil del usuario actual
+export const getCurrentUser = () => api("/auth/profile");
+
 // Funciones para mascotas
 export const getAllPets = () => api("/pets");
 
@@ -126,5 +129,66 @@ export const updatePet = (id, payload) => {
   return api(`/pets/${id}`, { method: "PUT", body: payload });
 };
 
+// Función específica para actualizar el estado de una mascota
+export const updatePetStatus = (petId, adoptadorId, nuevoEstado) => {
+  console.log(`updatePetStatus llamado con:`, { petId, adoptadorId, nuevoEstado });
+  
+  const payload = {
+    petId: parseInt(petId),
+    adoptadorId: adoptadorId ? parseInt(adoptadorId) : null,
+    nuevoEstado: nuevoEstado
+  };
+  
+  console.log(`updatePetStatus payload:`, payload);
+  return api(`/pets/${petId}`, { method: "PUT", body: payload });
+};
+
 // Funciones para adoptadores
 export const getAllAdopters = () => api("/adopters");
+
+// Funciones para adopciones
+export const createAdoption = (payload) =>
+  api("/adoptions", { method: "POST", body: payload });
+
+export const getMyAdoptions = () => api("/adoptions/my-adoptions");
+
+export const getAllAdoptions = () => api("/adoptions");
+
+export const completeAdoption = (id) => 
+  api(`/adoptions/${id}/complete`, { method: "PUT" });
+
+// Función específica para completar adopción desde el dashboard de empleados
+export const completeAdoptionFromDashboard = (adoptionId) => {
+  console.log(`completeAdoptionFromDashboard llamado con ID:`, adoptionId);
+  return api(`/adoptions/${adoptionId}/complete`, { method: "PUT" });
+};
+
+// Funciones para usuarios (solo superadmin)
+export const getAllUsers = () => api("/users");
+
+export const createUser = (payload) =>
+  api("/users", { method: "POST", body: payload });
+
+export const updateUser = (userId, payload) =>
+  api(`/users/${userId}`, { method: "PUT", body: payload });
+
+export const deleteUser = (userId) =>
+  api(`/users/${userId}`, { method: "DELETE" });
+
+// Funciones para categorías
+export const getAllCategories = () => api("/categories");
+
+export const createCategory = (payload) =>
+  api("/categories", { method: "POST", body: payload });
+
+// Funciones para roles
+export const getAllRoles = () => api("/roles");
+
+export const createRole = (payload) =>
+  api("/roles", { method: "POST", body: payload });
+
+export const updateRole = (id, payload) =>
+  api(`/roles/${id}`, { method: "PUT", body: payload });
+
+export const deleteRole = (id) =>
+  api(`/roles/${id}`, { method: "DELETE" });

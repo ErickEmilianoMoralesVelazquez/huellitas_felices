@@ -1,83 +1,73 @@
 import React, { useState } from "react";
-import { Funnel } from "lucide-react";
+import { Funnel, Search } from "lucide-react";
 
-const FiltersSidebar = () => {
-  const [perro, setPerro] = useState(false);
-  const [gato, setGato] = useState(false);
-  const [ave, setAve] = useState(false);
-  const [reptil, setReptil] = useState(false);
-  const [roedor, setRoedor] = useState(false);
+const FiltersSidebar = ({ categories = [], filters, setFilters, searchTerm, setSearchTerm }) => {
 
   return (
-    <div className="flex flex-col w-96 h-auto p-6 border border-gray-300 bg-white rounded-lg md:fixed">
+    <div className="flex flex-col w-96 h-auto p-6 border border-gray-300 bg-white rounded-lg md:sticky md:top-24">
       <div className="flex flex-row">
         <Funnel className="w-6 h-6 text-gray-700" />
         <h2 className="text-xl ml-2">Filtros</h2>
       </div>
 
+      {/* Búsqueda */}
       <div className="flex flex-col mt-6">
-        <label className="text-md mb-3 font-semibold">Categorias</label>
-        <div className="flex flex-row items-center mb-2">
+        <label className="text-md mb-3 font-semibold">Buscar</label>
+        <div className="relative">
+          <Search className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
           <input
-            type="checkbox"
-            className="h-4 w-4"
-            name="Perro"
-            id="perro"
-            value={perro}
+            type="text"
+            placeholder="Nombre, raza, descripción..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#ff6900] focus:border-transparent"
+          />
+        </div>
+      </div>
 
-          />
-          <label className="text-md ml-2 " for='perro'>Perro</label>
-        </div>
-        <div className="flex flex-row items-center mb-2">
-          <input
-            type="checkbox"
-            name="Gato"
-            className="h-4 w-4"
-            id="gato"
-            value={gato}
-          />
-          <label for='gato' className="text-md ml-2 ">Gato</label>
-        </div>
-        <div className="flex flex-row items-center mb-2">
-          <input
-            type="checkbox"
-            name="Reptil"
-            id="reptil"
-            value={reptil}
-            className="h-4 w-4"
-          />
-          <label for='reptil' className="text-md ml-2 ">Reptil</label>
-        </div>
-        <div className="flex flex-row items-center mb-2">
-          <input
-            type="checkbox"
-            name="Roedor"
-            id="roedor"
-            value={roedor}
-            className="h-4 w-4"
-          />
-          <label for='roedor' className="text-md ml-2">Roedor</label>
-        </div>
+      <div className="flex flex-col mt-6">
+        <label className="text-md mb-3 font-semibold">Categorías</label>
+        <select 
+          value={filters.categoria}
+          onChange={(e) => setFilters({...filters, categoria: e.target.value})}
+          className="outline outline-gray-300 rounded-sm h-10 pl-2 mb-4"
+        >
+          <option value="">Todas las categorías</option>
+          {categories.map(cat => (
+            <option key={cat.id} value={cat.nombre}>{cat.nombre}</option>
+          ))}
+        </select>
 
-        <form action="" className="flex flex-col mt-4">
-          <label className="text-md font-semibold mb-3">Edad:</label>
-          <select className="outline outline-gray-300 rounded-sm h-10 pl-2  mb-4">
-            <option value="">Todas</option>
-            <option value="cachorro">Cachorro</option>
-            <option value="adulto">Adulto</option>
-            <option value="senior">Senior</option>
-          </select>
-          <label className="text-md font-semibold mb-3">Tamaño:</label>
-          <select className="outline outline-gray-300 rounded-sm h-10 pl-2 mb-4">
-            <option value="">Todos</option>
-            <option value="pequeño">Pequeño</option>
-            <option value="mediano">Mediano</option>
-            <option value="grande">Grande</option>
-          </select>
-          <button className="bg-[#ff6900] text-white rounded-sm h-10 hover:bg-[#e85c00] cursor-pointer">
-            Aplicar filtros
-          </button>
-        </form>
+        <label className="text-md font-semibold mb-3">Estado:</label>
+        <select 
+          value={filters.estado}
+          onChange={(e) => setFilters({...filters, estado: e.target.value})}
+          className="outline outline-gray-300 rounded-sm h-10 pl-2 mb-4"
+        >
+          <option value="">Todos los estados</option>
+          <option value="DISPONIBLE">Disponibles</option>
+          <option value="EN_PROCESO_ADOPCION">En proceso</option>
+          <option value="ADOPTADO">Adoptados</option>
+        </select>
+
+        <label className="text-md font-semibold mb-3">Raza:</label>
+        <input
+          type="text"
+          placeholder="Ej: Labrador, Siamés..."
+          value={filters.raza}
+          onChange={(e) => setFilters({...filters, raza: e.target.value})}
+          className="outline outline-gray-300 rounded-sm h-10 pl-2 mb-4"
+        />
+
+        <button 
+          onClick={() => {
+            setFilters({categoria: '', estado: 'DISPONIBLE', raza: ''});
+            setSearchTerm('');
+          }}
+          className="bg-gray-500 text-white rounded-sm h-10 hover:bg-gray-600 cursor-pointer mb-2"
+        >
+          Limpiar filtros
+        </button>
       </div>
     </div>
   );

@@ -1,4 +1,5 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   User,
   Heart,
@@ -13,8 +14,11 @@ import {
   Sparkles,
   LogOut,
 } from "lucide-react";
+import { getCurrentUser, getMyAdoptions, logout } from "../lib/api";
+import { toast } from "react-hot-toast";
+import { motion } from "framer-motion";
 
-/* ------- Helpers y datos demo (sin backend) ------- */
+/* ------- Helpers ------- */
 function getInitials(name = "") {
   return name
     .split(" ")
@@ -24,123 +28,95 @@ function getInitials(name = "") {
     .join("");
 }
 
-const SAMPLE_USER = {
-  id: "u1",
-  name: "Erick Velázquez",
-  email: "erick@example.com",
-  phone: "+52 55 1234 5678",
-  address: "Av. Siempre Viva 742, CDMX",
-};
-
-const SAMPLE_PETS = [
-  {
-    id: "p2",
-    image:
-      "https://images.unsplash.com/photo-1592194996308-7b43878e84a6?q=80&w=1200&auto=format&fit=crop",
-    name: "Milo",
-    breed: "Siames",
-    category: "Gato",
-    color: "Crema",
-    weight: 4.2,
-    height: 0.25,
-    description: "Tranquilo, perfecto para departamento.",
-    intakeDate: "2025-06-10",
-    status: "En proceso de adopción",
-    adopterId: "u1",
-    processStartedAt: "2025-08-10",
-  },
-  {
-    id: "p2",
-    image:
-      "https://images.unsplash.com/photo-1592194996308-7b43878e84a6?q=80&w=1200&auto=format&fit=crop",
-    name: "Milo",
-    breed: "Siames",
-    category: "Gato",
-    color: "Crema",
-    weight: 4.2,
-    height: 0.25,
-    description: "Tranquilo, perfecto para departamento.",
-    intakeDate: "2025-06-10",
-    status: "En proceso de adopción",
-    adopterId: "u1",
-    processStartedAt: "2025-08-10",
-  },
-  {
-    id: "p2",
-    image:
-      "https://images.unsplash.com/photo-1592194996308-7b43878e84a6?q=80&w=1200&auto=format&fit=crop",
-    name: "Milo",
-    breed: "Siames",
-    category: "Gato",
-    color: "Crema",
-    weight: 4.2,
-    height: 0.25,
-    description: "Tranquilo, perfecto para departamento.",
-    intakeDate: "2025-06-10",
-    status: "En proceso de adopción",
-    adopterId: "u1",
-    processStartedAt: "2025-08-10",
-  },
-  {
-    id: "p2",
-    image:
-      "https://images.unsplash.com/photo-1592194996308-7b43878e84a6?q=80&w=1200&auto=format&fit=crop",
-    name: "Milo",
-    breed: "Siames",
-    category: "Gato",
-    color: "Crema",
-    weight: 4.2,
-    height: 0.25,
-    description: "Tranquilo, perfecto para departamento.",
-    intakeDate: "2025-06-10",
-    status: "En proceso de adopción",
-    adopterId: "u1",
-    processStartedAt: "2025-08-10",
-  },
-  {
-    id: "p3",
-    image:
-      "https://images.unsplash.com/photo-1552053831-71594a27632d?q=80&w=1200&auto=format&fit=crop",
-    name: "Kiwi",
-    breed: "Cotorra",
-    category: "Pájaro",
-    color: "Verde",
-    weight: 0.3,
-    height: 0.12,
-    description: "Canta por las mañanas y es muy curioso.",
-    intakeDate: "2025-05-15",
-    status: "Adoptado",
-    adopterId: "u1",
-    adoptionDate: "2025-07-20",
-  },
-];
-
 export default function AdopterProfile() {
-  const [currentUser] = useState(SAMPLE_USER);
-  const [pets] = useState(SAMPLE_PETS);
+  const navigate = useNavigate();
+  const [currentUser, setCurrentUser] = useState(null);
+  const [adoptions, setAdoptions] = useState([]);
   const [tab, setTab] = useState("profile");
+  const [loading, setLoading] = useState(true);
 
-  const userPets = useMemo(
-    () => pets.filter((p) => p.adopterId === currentUser.id),
-    [pets, currentUser.id]
-  );
+  useEffect(() => {
+    fetchUserData();
+  }, []);
+
+  const fetchUserData = async () => {
+    try {
+      setLoading(true);
+
+      // Obtener datos del usuario actual
+      const userResponse = await getCurrentUser();
+      setCurrentUser(userResponse);
+
+      // Obtener adopciones del usuario
+      const adoptionsResponse = await getMyAdoptions();
+      setAdoptions(adoptionsResponse || []);
+    } catch (error) {
+      console.error("Error fetching user data:", error);
+      toast.error("Error al cargar la información del perfil");
+
+      // Si hay error de autenticación, redirigir al login
+      if (error.authError) {
+        navigate("/login");
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const adoptedPets = useMemo(
-    () => userPets.filter((p) => p.status === "Adoptado"),
-    [userPets]
+    () => adoptions.filter((adoption) => adoption.estado === "COMPLETADA"),
+    [adoptions]
   );
   const inProcessPets = useMemo(
-    () => userPets.filter((p) => p.status === "En proceso de adopción"),
-    [userPets]
+    () =>
+      adoptions.filter(
+        (adoption) =>
+          adoption.estado === "SOLICITADA" || adoption.estado === "PENDIENTE"
+      ),
+    [adoptions]
   );
 
-  function handleLogout() {
-    // Aquí haces tu lógica real de logout (limpiar storage, navegar, etc.)
-    alert("Sesión cerrada (demo).");
+  const handleLogout = () => {
+    logout();
+    toast.success("Sesión cerrada correctamente");
+    navigate("/login");
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <motion.div
+          animate={{ rotate: 360 }}
+          transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+          className="w-12 h-12 border-4 border-[#ff6900] border-t-transparent rounded-full"
+        />
+      </div>
+    );
+  }
+
+  if (!currentUser) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">
+            Error al cargar el perfil
+          </h3>
+          <button
+            onClick={() => navigate("/login")}
+            className="px-4 py-2 bg-[#ff6900] text-white rounded-lg hover:bg-orange-600"
+          >
+            Iniciar Sesión
+          </button>
+        </div>
+      </div>
+    );
   }
 
   return (
     <div className="min-h-screen bg-gray-50">
       <main className="mx-auto max-w-6xl px-4 py-8">
+        {/* Header con botón de logout */}
+
         {/* HERO con fondo degradado + avatar sobrepuesto */}
         <div className="relative mb-16">
           <div className="h-36 rounded-3xl bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-600 shadow-lg sm:h-40 md:h-44" />
@@ -148,7 +124,7 @@ export default function AdopterProfile() {
             {/* Avatar */}
             <div className="relative h-24 w-24 overflow-hidden rounded-full border-4 border-white shadow-xl sm:h-28 sm:w-28">
               <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-blue-500 to-purple-600 text-2xl font-bold text-white">
-                {getInitials(currentUser.name)}
+                {getInitials(currentUser.nombre)}
               </div>
               <div className="absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full border-2 border-white bg-green-500">
                 <CheckCircle2 className="h-4 w-4 text-white" />
@@ -158,7 +134,7 @@ export default function AdopterProfile() {
             {/* Nombre + badges */}
             <div className="pb-2">
               <h1 className="text-2xl font-bold text-white mb-5 sm:text-3xl">
-                {currentUser.name}
+                {currentUser.nombre}
               </h1>
               <div className="mt-2 flex flex-wrap items-center gap-2">
                 <span className="inline-flex items-center gap-1 rounded-full border border-green-200 bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-800">
@@ -182,7 +158,7 @@ export default function AdopterProfile() {
         <section className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-3">
           <div className="rounded-2xl bg-gradient-to-br from-blue-50 to-blue-100 p-5 text-center">
             <div className="text-3xl font-bold text-blue-600">
-              {userPets.length}
+              {adoptions.length}
             </div>
             <div className="text-sm font-medium text-blue-700">
               Total de adopciones
@@ -229,9 +205,9 @@ export default function AdopterProfile() {
           >
             <Heart className="h-4 w-4" />
             Mis adopciones
-            {userPets.length > 0 && (
+            {adoptions.length > 0 && (
               <span className="ml-1 inline-flex min-w-6 items-center justify-center rounded-full bg-purple-100 px-2 text-xs font-medium text-purple-700">
-                {userPets.length}
+                {adoptions.length}
               </span>
             )}
           </button>
@@ -257,7 +233,7 @@ export default function AdopterProfile() {
                         Correo electrónico
                       </p>
                       <p className="font-semibold text-gray-900">
-                        {currentUser.email}
+                        {currentUser.correo}
                       </p>
                     </div>
                   </div>
@@ -271,7 +247,7 @@ export default function AdopterProfile() {
                         Teléfono
                       </p>
                       <p className="font-semibold text-gray-900">
-                        {currentUser.phone}
+                        {currentUser.telefono}
                       </p>
                     </div>
                   </div>
@@ -285,7 +261,7 @@ export default function AdopterProfile() {
                         Dirección
                       </p>
                       <p className="font-semibold text-gray-900">
-                        {currentUser.address}
+                        {currentUser.direccion}
                       </p>
                     </div>
                   </div>
@@ -326,7 +302,7 @@ export default function AdopterProfile() {
         {/* Contenido: Adopciones */}
         {tab === "adoptions" && (
           <section className="space-y-8">
-            {userPets.length === 0 ? (
+            {adoptions.length === 0 ? (
               <div className="rounded-2xl border-0 bg-white shadow-lg">
                 <div className="p-12 text-center">
                   <div className="mx-auto mb-6 flex h-24 w-24 items-center justify-center rounded-full bg-gray-100">
@@ -335,10 +311,18 @@ export default function AdopterProfile() {
                   <h3 className="mb-4 text-2xl font-bold text-gray-800">
                     Aún no tienes adopciones
                   </h3>
-                  <p className="mx-auto max-w-md text-gray-600">
+                  <p className="mx-auto max-w-md text-gray-600 mb-6">
                     ¡Es hora de encontrar tu compañero perfecto! Explora el
                     catálogo y encuentra la mascota ideal para ti.
                   </p>
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => navigate("/catalogo")}
+                    className="inline-flex items-center px-6 py-3 bg-[#ff6900] text-white font-semibold rounded-lg hover:bg-orange-600 transition-colors"
+                  >
+                    Explorar Catálogo
+                  </motion.button>
                 </div>
               </div>
             ) : (
@@ -361,27 +345,28 @@ export default function AdopterProfile() {
                     {/* SCROLLER */}
                     <div className="overflow-x-auto">
                       <div className="flex gap-6 snap-x snap-mandatory">
-                        {inProcessPets.map((pet) => (
+                        {inProcessPets.map((adoption) => (
                           <div
-                            key={pet.id}
+                            key={adoption.id}
                             className="snap-start w-80 md:w-96 shrink-0"
                           >
                             <div className="overflow-hidden rounded-2xl border-0 bg-white shadow-lg transition hover:shadow-xl">
                               <div className="relative">
-                                <img
-                                  src={pet.image || "/placeholder.svg"}
-                                  alt={pet.name}
-                                  className="h-48 w-full object-cover"
-                                />
+                                <div className="h-48 w-full bg-gradient-to-br from-[#ffd6a7] to-[#ff6900] flex items-center justify-center">
+                                  <span className="text-6xl">🐾</span>
+                                </div>
                                 <div className="absolute top-4 right-4">
                                   <span className="inline-flex items-center gap-1 rounded-full bg-yellow-500 px-2.5 py-0.5 text-xs font-medium text-white shadow">
                                     <Clock className="h-3 w-3" />
-                                    En proceso
+                                    {adoption.estado === "SOLICITADA"
+                                      ? "Solicitada"
+                                      : "En proceso"}
                                   </span>
                                 </div>
                                 <div className="absolute bottom-4 left-4 rounded-full bg-white/90 px-3 py-1 backdrop-blur">
                                   <span className="text-sm font-medium text-gray-800">
-                                    {pet.category}
+                                    {adoption.pet?.categoria?.nombre ||
+                                      "Mascota"}
                                   </span>
                                 </div>
                               </div>
@@ -389,29 +374,37 @@ export default function AdopterProfile() {
                                 <div className="mb-4 flex items-center justify-between">
                                   <div>
                                     <h3 className="text-xl font-bold text-gray-900">
-                                      {pet.name}
+                                      {adoption.pet?.nombre ||
+                                        "Nombre no disponible"}
                                     </h3>
-                                    <p className="text-gray-600">{pet.breed}</p>
+                                    <p className="text-gray-600">
+                                      {adoption.pet?.raza ||
+                                        "Raza no disponible"}
+                                    </p>
                                   </div>
                                   <div className="text-right">
                                     <p className="text-sm text-gray-500">
                                       Peso
                                     </p>
                                     <p className="font-semibold">
-                                      {pet.weight} kg
+                                      {adoption.pet?.peso || "N/A"} kg
                                     </p>
                                   </div>
                                 </div>
                                 <p className="mb-4 text-sm text-gray-700">
-                                  {pet.description}
+                                  {adoption.motivoAdopcion}
                                 </p>
                                 <div className="flex items-center justify-between text-sm">
                                   <div className="flex items-center text-yellow-700">
                                     <Calendar className="mr-1 h-4 w-4" />
-                                    Proceso iniciado
+                                    {new Date(
+                                      adoption.fechaSolicitud
+                                    ).toLocaleDateString("es-ES")}
                                   </div>
                                   <span className="font-medium text-yellow-700">
-                                    Esperando confirmación
+                                    {adoption.estado === "SOLICITADA"
+                                      ? "Solicitud enviada"
+                                      : "Esperando confirmación"}
                                   </span>
                                 </div>
                               </div>
@@ -441,18 +434,16 @@ export default function AdopterProfile() {
                     {/* SCROLLER */}
                     <div className="overflow-x-auto">
                       <div className="flex gap-6 snap-x snap-mandatory">
-                        {adoptedPets.map((pet) => (
+                        {adoptedPets.map((adoption) => (
                           <div
-                            key={pet.id}
+                            key={adoption.id}
                             className="snap-start w-80 md:w-96 shrink-0"
                           >
                             <div className="overflow-hidden rounded-2xl border-0 bg-gradient-to-br from-green-50 to-emerald-50 shadow-lg transition hover:shadow-xl">
                               <div className="relative">
-                                <img
-                                  src={pet.image || "/placeholder.svg"}
-                                  alt={pet.name}
-                                  className="h-48 w-full object-cover"
-                                />
+                                <div className="h-48 w-full bg-gradient-to-br from-green-200 to-green-400 flex items-center justify-center">
+                                  <span className="text-6xl">🐾</span>
+                                </div>
                                 <div className="absolute top-4 right-4">
                                   <span className="inline-flex items-center gap-1 rounded-full bg-green-500 px-2.5 py-0.5 text-xs font-medium text-white shadow">
                                     <CheckCircle2 className="h-3 w-3" />
@@ -461,7 +452,8 @@ export default function AdopterProfile() {
                                 </div>
                                 <div className="absolute bottom-4 left-4 rounded-full bg-white/90 px-3 py-1 backdrop-blur">
                                   <span className="text-sm font-medium text-gray-800">
-                                    {pet.category}
+                                    {adoption.pet?.categoria?.nombre ||
+                                      "Mascota"}
                                   </span>
                                 </div>
                                 <div className="absolute top-4 left-4">
@@ -474,33 +466,35 @@ export default function AdopterProfile() {
                                 <div className="mb-4 flex items-center justify-between">
                                   <div>
                                     <h3 className="text-xl font-bold text-gray-900">
-                                      {pet.name}
+                                      {adoption.pet?.nombre ||
+                                        "Nombre no disponible"}
                                     </h3>
-                                    <p className="text-gray-600">{pet.breed}</p>
+                                    <p className="text-gray-600">
+                                      {adoption.pet?.raza ||
+                                        "Raza no disponible"}
+                                    </p>
                                   </div>
                                   <div className="text-right">
                                     <p className="text-sm text-gray-500">
                                       Peso
                                     </p>
                                     <p className="font-semibold">
-                                      {pet.weight} kg
+                                      {adoption.pet?.peso || "N/A"} kg
                                     </p>
                                   </div>
                                 </div>
                                 <p className="mb-4 text-sm text-gray-700">
-                                  {pet.description}
+                                  {adoption.motivoAdopcion}
                                 </p>
                                 <div className="flex items-center justify-between">
                                   <div className="flex items-center text-sm text-green-700">
                                     <Calendar className="mr-1 h-4 w-4" />
-                                    {pet.adoptionDate && (
-                                      <span>
-                                        Adoptado el{" "}
-                                        {new Date(
-                                          pet.adoptionDate
-                                        ).toLocaleDateString("es-MX")}
-                                      </span>
-                                    )}
+                                    <span>
+                                      Completado el{" "}
+                                      {new Date(
+                                        adoption.fechaSolicitud
+                                      ).toLocaleDateString("es-ES")}
+                                    </span>
                                   </div>
                                   <div className="flex items-center gap-1">
                                     <Sparkles className="h-4 w-4 text-yellow-500" />
