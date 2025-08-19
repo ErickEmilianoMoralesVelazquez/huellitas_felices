@@ -181,6 +181,15 @@ export const getAllCategories = () => api("/categories");
 export const createCategory = (payload) =>
   api("/categories", { method: "POST", body: payload });
 
+export const updateCategory = (id, payload) =>
+  api(`/categories/${id}`, { method: "PUT", body: payload });
+
+export const deleteCategory = (id) =>
+  api(`/categories/${id}`, { method: "DELETE" });
+
+export const toggleCategoryStatus = (id, activo) =>
+  api(`/categories/${id}`, { method: "PUT", body: { activo } });
+
 // Funciones para roles
 export const getAllRoles = () => api("/roles");
 

@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import {
   UserPlus,
   Users,
@@ -19,6 +19,16 @@ import {
   UserCheck,
   AlertCircle,
 } from "lucide-react";
+import { 
+  getAllUsers, 
+  createUser,
+  deleteUser, 
+  getAllCategories, 
+  createCategory,
+  deleteCategory,
+  isAuthenticated,
+  getCurrentUser
+} from "../lib/api";
 
 /* ========= Datos de ejemplo ========= */
 const SAMPLE_USERS = [
@@ -46,7 +56,7 @@ const getInitials = (name = "") =>
 
 const getRoleColor = (role) => {
   switch (role) {
-    case "superadmin":
+    case "admin":
       return "bg-purple-100 text-purple-800 border-purple-200";
     case "empleado":
       return "bg-blue-100 text-blue-800 border-blue-200";
@@ -58,8 +68,9 @@ const getRoleColor = (role) => {
 };
 
 const RoleIcon = ({ role, className = "h-3 w-3 mr-1" }) => {
-  if (role === "superadmin") return <Crown className={className} />;
+  if (role === "admin") return <Crown className={className} />;
   if (role === "empleado") return <UserCheck className={className} />;
+  if (role === "adoptador") return <Users className={className} />;
   return <Users className={className} />;
 };
 
@@ -67,15 +78,22 @@ const RoleIcon = ({ role, className = "h-3 w-3 mr-1" }) => {
 export default function DashboardAdmin() {
   const [tab, setTab] = useState("employees");
 
-  const [users, setUsers] = useState(SAMPLE_USERS);
-  const [categories, setCategories] = useState(INITIAL_CATEGORIES);
+  // Estados para datos
+  const [users, setUsers] = useState([]);
+  const [categories, setCategories] = useState([]);
+  
+  // Estados para carga y errores
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [successMessage, setSuccessMessage] = useState(null);
 
   const [newEmployee, setNewEmployee] = useState({
     name: "",
     email: "",
+    password: "",
     phone: "",
     address: "",
-    role: "empleado",
+    role: "empleado", // Por defecto empleado
   });
   const [isSubmittingEmployee, setIsSubmittingEmployee] = useState(false);
   const [lastRegisteredEmployee, setLastRegisteredEmployee] = useState(null);
@@ -84,19 +102,269 @@ export default function DashboardAdmin() {
   const [isSubmittingCategory, setIsSubmittingCategory] = useState(false);
   const [lastRegisteredCategory, setLastRegisteredCategory] = useState(null);
 
-  const employees = useMemo(() => users.filter((u) => u.role === "empleado"), [users]);
-  const adopters = useMemo(() => users.filter((u) => u.role === "adoptador"), [users]);
-  const activeCategories = useMemo(() => categories.filter((c) => c.isActive), [categories]);
+  // Estado para el usuario actual
+  const [currentUser, setCurrentUser] = useState({ id: "admin-demo", name: "Cargando...", role: "admin" });
+
+  // Función helper para obtener el rol de un usuario
+  const getUserRole = (user) => {
+    // Si el rol es un objeto con id y nombre
+    if (user?.rol && typeof user.rol === 'object' && user.rol.id) {
+      switch (user.rol.id) {
+        case 1: return "admin";
+        case 2: return "adoptador";
+        case 3: return "empleado";
+        default: return "adoptador";
+      }
+    }
+    // Fallback para estructura antigua
+    return user?.rol || user?.role || "adoptador";
+  };
+
+  const employees = useMemo(() => {
+    const filtered = users.filter((u) => {
+      const role = getUserRole(u);
+      return role === "empleado" || role === "admin";
+    });
+    console.log("Usuarios totales:", users.map(u => ({ 
+      id: u.id, 
+      nombre: u.nombre || u.name, 
+      rol: getUserRole(u),
+      rolOriginal: u.rol 
+    })));
+    console.log("Empleados filtrados:", filtered.map(u => ({ 
+      id: u.id, 
+      nombre: u.nombre || u.name, 
+      rol: getUserRole(u),
+      rolOriginal: u.rol 
+    })));
+    return filtered;
+  }, [users]);
+  
+  const adopters = useMemo(() => {
+    const filtered = users.filter((u) => {
+      const role = getUserRole(u);
+      return role === "adoptador";
+    });
+    console.log("Adoptadores filtrados:", filtered.map(u => ({ 
+      id: u.id, 
+      nombre: u.nombre || u.name, 
+      rol: getUserRole(u),
+      rolOriginal: u.rol 
+    })));
+    return filtered;
+  }, [users]);
+  
+  const totalCategories = useMemo(() => categories.length, [categories]);
+
+
+
+  // Cargar datos al montar el componente
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
+        
+        // Verificar autenticación
+        if (!isAuthenticated()) {
+          setError("No estás autenticado. Redirigiendo al login...");
+          setTimeout(() => {
+            window.location.href = '/login';
+          }, 2000);
+          return;
+        }
+
+        // Cargar usuario actual, usuarios y categorías en paralelo
+        const [currentUserData, usersData, categoriesData] = await Promise.all([
+          getCurrentUser(),
+          getAllUsers(),
+          getAllCategories()
+        ]);
+
+        console.log("Usuario actual:", currentUserData);
+        console.log("Usuarios cargados (estructura completa):", usersData);
+        console.log("Categorías cargadas:", categoriesData);
+        
+        // Log detallado de la estructura de roles
+        if (usersData && Array.isArray(usersData)) {
+          console.log("Estructura de roles de usuarios:");
+          usersData.forEach((user, index) => {
+            console.log(`Usuario ${index + 1}:`, {
+              id: user.id,
+              nombre: user.nombre,
+              rol: user.rol,
+              tipoRol: typeof user.rol,
+              esObjeto: user.rol && typeof user.rol === 'object'
+            });
+          });
+        }
+
+        setCurrentUser(currentUserData || { id: "admin-demo", name: "Admin", role: "admin" });
+        setUsers(usersData || []);
+        setCategories(categoriesData || []);
+        
+      } catch (err) {
+        console.error("Error al cargar datos:", err);
+        let errorMessage = "Error al cargar los datos.";
+        
+        if (err.authError) {
+          errorMessage = "Sesión expirada. Por favor, inicia sesión nuevamente.";
+          setTimeout(() => {
+            window.location.href = '/login';
+          }, 2000);
+        } else if (err.message.includes("Failed to fetch")) {
+          errorMessage = "No se pudo conectar al servidor. Verifica que el backend esté ejecutándose.";
+        } else if (err.status === 404) {
+          errorMessage = "Endpoint no encontrado. Verifica que la API esté disponible.";
+        } else if (err.status === 500) {
+          errorMessage = "Error interno del servidor. Contacta al administrador.";
+        } else {
+          errorMessage = `${err.message}. Verifica la conexión al servidor.`;
+        }
+        
+        setError(errorMessage);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadData();
+  }, []);
+
+  // Función para recargar datos
+  const reloadData = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      
+      const [currentUserData, usersData, categoriesData] = await Promise.all([
+        getCurrentUser(),
+        getAllUsers(),
+        getAllCategories()
+      ]);
+
+      setCurrentUser(currentUserData || { id: "admin-demo", name: "Admin", role: "admin" });
+      setUsers(usersData || []);
+      setCategories(categoriesData || []);
+      
+    } catch (err) {
+      console.error("Error al recargar datos:", err);
+      setError("Error al recargar los datos. Intenta de nuevo.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   async function handleSubmitEmployee(e) {
     e.preventDefault();
     setIsSubmittingEmployee(true);
+    setError(null);
+    
     try {
-      await new Promise((r) => setTimeout(r, 500));
-      const newUser = { id: `u-${Date.now()}`, ...newEmployee };
-      setUsers((prev) => [newUser, ...prev]);
-      setLastRegisteredEmployee(newUser);
-      setNewEmployee({ name: "", email: "", phone: "", address: "", role: "empleado" });
+      // Validar datos requeridos
+      if (!newEmployee.name || !newEmployee.email || !newEmployee.password || !newEmployee.phone) {
+        setError("Nombre, email, contraseña y teléfono son obligatorios.");
+        return;
+      }
+
+      // Validar longitud de contraseña
+      if (newEmployee.password.length < 10) {
+        setError("La contraseña debe tener al menos 10 caracteres.");
+        return;
+      }
+
+      // Preparar payload para la API
+      const userPayload = {
+        nombre: newEmployee.name.trim(),
+        correo: newEmployee.email.trim(),
+        password: newEmployee.password,
+        telefono: newEmployee.phone.trim(),
+        direccion: newEmployee.address.trim() || "",
+        rol: newEmployee.role
+      };
+
+      console.log("Registrando empleado:", userPayload);
+
+      const newUser = await createUser(userPayload);
+      
+      console.log("Empleado registrado exitosamente:", newUser);
+      console.log("Tipo de respuesta:", typeof newUser);
+      console.log("Estructura de respuesta:", JSON.stringify(newUser, null, 2));
+      
+      // Verificar que newUser sea válido
+      if (!newUser || typeof newUser !== 'object') {
+        throw new Error("Respuesta inválida del servidor al crear empleado");
+      }
+      
+      // Actualizar la lista de usuarios
+      setUsers(prev => {
+        console.log("Lista anterior de usuarios:", prev);
+        const updatedList = [newUser, ...prev];
+        console.log("Lista actualizada de usuarios:", updatedList);
+        return updatedList;
+      });
+      // Asegurar que lastRegisteredEmployee tenga los campos correctos
+      const employeeForDisplay = {
+        id: newUser.id || newUser.userId || Date.now(),
+        nombre: newUser.nombre || newUser.name || newEmployee.name || "Empleado",
+        correo: newUser.correo || newUser.email || newEmployee.email || "",
+        telefono: newUser.telefono || newUser.phone || newEmployee.phone || "",
+        direccion: newUser.direccion || newUser.address || newEmployee.address || "",
+        rol: newUser.rol || newUser.role || newEmployee.role || "empleado"
+      };
+      
+      console.log("Empleado para mostrar:", employeeForDisplay);
+      
+      // Validar que el objeto sea válido antes de establecerlo
+      if (employeeForDisplay && typeof employeeForDisplay === 'object' && employeeForDisplay !== null) {
+        // Asegurar que todas las propiedades sean strings
+        const safeEmployee = {
+          id: employeeForDisplay.id || Date.now(),
+          nombre: String(employeeForDisplay.nombre || employeeForDisplay.name || newEmployee.name || "Empleado"),
+          correo: String(employeeForDisplay.correo || employeeForDisplay.email || newEmployee.email || ""),
+          telefono: String(employeeForDisplay.telefono || employeeForDisplay.phone || newEmployee.phone || ""),
+          direccion: String(employeeForDisplay.direccion || employeeForDisplay.address || newEmployee.address || ""),
+          rol: String(employeeForDisplay.rol || employeeForDisplay.role || newEmployee.role || "empleado")
+        };
+        console.log("Empleado seguro para mostrar:", safeEmployee);
+        setLastRegisteredEmployee(safeEmployee);
+      } else {
+        console.error("Objeto de empleado inválido:", employeeForDisplay);
+        setLastRegisteredEmployee({
+          id: Date.now(),
+          nombre: String(newEmployee.name || "Empleado"),
+          rol: String(newEmployee.role || "empleado")
+        });
+      }
+      setNewEmployee({ name: "", email: "", password: "", phone: "", address: "", role: "empleado" });
+      setSuccessMessage("Empleado registrado exitosamente");
+      
+      // Recargar datos para asegurar que los contadores estén actualizados
+      setTimeout(() => {
+        reloadData();
+      }, 1000);
+      
+      // Limpiar mensaje de éxito después de 3 segundos
+      setTimeout(() => setSuccessMessage(null), 3000);
+      
+    } catch (err) {
+      console.error("Error al registrar empleado:", err);
+      let errorMessage = "Error al registrar el empleado.";
+      
+      if (err.authError) {
+        errorMessage = "Sesión expirada. Por favor, inicia sesión nuevamente.";
+        setTimeout(() => {
+          window.location.href = '/login';
+        }, 2000);
+      } else if (err.status === 400) {
+        errorMessage = "Datos inválidos. Verifica que todos los campos estén correctos.";
+      } else if (err.status === 500) {
+        errorMessage = "Error interno del servidor. Contacta al administrador.";
+      } else {
+        errorMessage = `${err.message}. Verifica la conexión al servidor.`;
+      }
+      
+      setError(errorMessage);
     } finally {
       setIsSubmittingEmployee(false);
     }
@@ -105,45 +373,217 @@ export default function DashboardAdmin() {
   async function handleSubmitCategory(e) {
     e.preventDefault();
     setIsSubmittingCategory(true);
+    setError(null);
+    
     try {
-      await new Promise((r) => setTimeout(r, 400));
-      const cat = {
-        id: `${Date.now()}`,
-        name: newCategory.name,
-        emoji: newCategory.emoji,
-        description: newCategory.description,
-        isActive: true,
-        createdDate: new Date().toISOString().split("T")[0],
+      // Validar datos requeridos
+      if (!newCategory.name || !newCategory.emoji) {
+        setError("Nombre y emoji son obligatorios.");
+        return;
+      }
+
+      // Preparar payload para la API - concatenar emoji al nombre
+      const categoryPayload = {
+        nombre: `${newCategory.emoji.trim()} ${newCategory.name.trim()}`,
+        descripcion: newCategory.description.trim() || "",
+        activo: true
       };
-      setCategories((prev) => [cat, ...prev]);
-      setLastRegisteredCategory(cat);
+
+      console.log("Creando categoría:", categoryPayload);
+
+      const newCat = await createCategory(categoryPayload);
+      
+      console.log("Categoría creada exitosamente:", newCat);
+      
+      // Actualizar la lista de categorías
+      setCategories(prev => [newCat, ...prev]);
+      setLastRegisteredCategory(newCat);
       setNewCategory({ name: "", emoji: "", description: "" });
+      setSuccessMessage("Categoría creada exitosamente");
+      
+      // Limpiar mensaje de éxito después de 3 segundos
+      setTimeout(() => setSuccessMessage(null), 3000);
+      
+    } catch (err) {
+      console.error("Error al crear categoría:", err);
+      let errorMessage = "Error al crear la categoría.";
+      
+      if (err.authError) {
+        errorMessage = "Sesión expirada. Por favor, inicia sesión nuevamente.";
+        setTimeout(() => {
+          window.location.href = '/login';
+        }, 2000);
+      } else if (err.status === 400) {
+        errorMessage = "Datos inválidos. Verifica que todos los campos estén correctos.";
+      } else if (err.status === 500) {
+        errorMessage = "Error interno del servidor. Contacta al administrador.";
+      } else {
+        errorMessage = `${err.message}. Verifica la conexión al servidor.`;
+      }
+      
+      setError(errorMessage);
     } finally {
       setIsSubmittingCategory(false);
     }
   }
 
-  function toggleCategoryStatus(categoryId) {
-    setCategories((prev) =>
-      prev.map((c) => (c.id === categoryId ? { ...c, isActive: !c.isActive } : c))
-    );
+  async function handleDeleteCategory(categoryId) {
+    if (!confirm("¿Estás seguro de que quieres eliminar esta categoría?")) {
+      return;
+    }
+    
+    try {
+      setError(null);
+      console.log("Eliminando categoría con ID:", categoryId);
+      
+      await deleteCategory(categoryId);
+      
+      console.log("Categoría eliminada exitosamente");
+      
+      // Actualizar la lista de categorías
+      setCategories(prev => prev.filter(c => c.id !== categoryId));
+      setSuccessMessage("Categoría eliminada exitosamente");
+      
+      // Limpiar mensaje de éxito después de 3 segundos
+      setTimeout(() => setSuccessMessage(null), 3000);
+      
+    } catch (err) {
+      console.error("Error al eliminar categoría:", err);
+      let errorMessage = "Error al eliminar la categoría.";
+      
+      if (err.authError) {
+        errorMessage = "Sesión expirada. Por favor, inicia sesión nuevamente.";
+        setTimeout(() => {
+          window.location.href = '/login';
+        }, 2000);
+      } else if (err.status === 404) {
+        errorMessage = "Categoría no encontrada.";
+      } else if (err.status === 500) {
+        errorMessage = "Error interno del servidor. Contacta al administrador.";
+      } else {
+        errorMessage = `${err.message}. Verifica la conexión al servidor.`;
+      }
+      
+      setError(errorMessage);
+    }
   }
 
-  function handleDeleteUser(id) {
-    setUsers((prev) => prev.filter((u) => u.id !== id));
+
+
+  async function handleDeleteUser(id) {
+    if (!confirm("¿Estás seguro de que quieres eliminar este usuario?")) {
+      return;
+    }
+    
+    try {
+      setError(null);
+      console.log("Eliminando usuario con ID:", id);
+      
+      await deleteUser(id);
+      
+      console.log("Usuario eliminado exitosamente");
+      
+      // Actualizar la lista de usuarios
+      setUsers(prev => {
+        const updatedUsers = prev.filter(u => u.id !== id);
+        console.log("Usuario eliminado, lista actualizada:", updatedUsers);
+        return updatedUsers;
+      });
+      setSuccessMessage("Usuario eliminado exitosamente");
+      
+      // Recargar datos para asegurar que los contadores estén actualizados
+      setTimeout(() => {
+        reloadData();
+      }, 1000);
+      
+      // Limpiar mensaje de éxito después de 3 segundos
+      setTimeout(() => setSuccessMessage(null), 3000);
+      
+    } catch (err) {
+      console.error("Error al eliminar usuario:", err);
+      let errorMessage = "Error al eliminar el usuario.";
+      
+      if (err.authError) {
+        errorMessage = "Sesión expirada. Por favor, inicia sesión nuevamente.";
+        setTimeout(() => {
+          window.location.href = '/login';
+        }, 2000);
+      } else if (err.status === 404) {
+        errorMessage = "Usuario no encontrado.";
+      } else if (err.status === 500) {
+        errorMessage = "Error interno del servidor. Contacta al administrador.";
+      } else {
+        errorMessage = `${err.message}. Verifica la conexión al servidor.`;
+      }
+      
+      setError(errorMessage);
+    }
   }
 
-  const currentUser = { id: "admin-demo", name: "Súper Admin Demo", role: "superadmin" };
+
 
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="mx-auto max-w-6xl px-4 py-8">
+        {/* Mensajes de error y éxito */}
+        {error && (
+          <div className="mb-6 rounded-lg border border-red-200 bg-red-50 p-4">
+            <div className="flex items-center gap-3">
+              <AlertCircle className="h-5 w-5 text-red-600" />
+              <div className="flex-1">
+                <p className="text-sm font-medium text-red-800">{error}</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={reloadData}
+                  className="rounded-md bg-red-100 px-3 py-1 text-xs font-medium text-red-700 hover:bg-red-200"
+                >
+                  Reintentar
+                </button>
+                <button
+                  onClick={() => setError(null)}
+                  className="text-red-600 hover:text-red-800"
+                >
+                  ×
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {successMessage && (
+          <div className="mb-6 rounded-lg border border-green-200 bg-green-50 p-4">
+            <div className="flex items-center gap-3">
+              <CheckCircle2 className="h-5 w-5 text-green-600" />
+              <div className="flex-1">
+                <p className="text-sm font-medium text-green-800">{successMessage}</p>
+              </div>
+              <button
+                onClick={() => setSuccessMessage(null)}
+                className="text-green-600 hover:text-green-800"
+              >
+                ×
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Estado de carga */}
+        {isLoading && (
+          <div className="mb-8 text-center">
+            <div className="inline-flex items-center gap-3 rounded-lg bg-white px-6 py-4 shadow-lg">
+              <Clock className="h-6 w-6 animate-spin text-blue-600" />
+              <span className="text-lg font-medium text-gray-700">Cargando datos...</span>
+            </div>
+          </div>
+        )}
+
         {/* Header */}
         <div className="mb-8 text-center">
           <div className="relative mb-6 inline-block">
             <div className="relative inline-flex h-24 w-24 items-center justify-center overflow-hidden rounded-full border-4 border-white bg-gray-200 shadow-lg">
               <span className="flex h-full w-full items-center justify-center bg-gradient-to-br from-purple-500 to-pink-600 text-2xl font-bold text-white">
-                {getInitials(currentUser.name)}
+                {getInitials(currentUser.nombre || currentUser.name)}
               </span>
             </div>
             <div className="absolute -bottom-2 -right-2 flex h-8 w-8 items-center justify-center rounded-full border-2 border-white bg-purple-500">
@@ -151,7 +591,7 @@ export default function DashboardAdmin() {
             </div>
           </div>
 
-          <h1 className="mb-2 text-4xl font-bold text-gray-900">{currentUser.name}</h1>
+          <h1 className="mb-2 text-4xl font-bold text-gray-900">{currentUser.nombre || currentUser.name}</h1>
           <div className="mb-6 flex flex-wrap items-center justify-center gap-3">
             <span className="inline-flex items-center rounded-full border border-purple-200 bg-purple-100 px-2.5 py-0.5 text-xs font-medium text-purple-800">
               <Crown className="mr-1 h-3 w-3" />
@@ -174,8 +614,8 @@ export default function DashboardAdmin() {
               <div className="text-sm font-medium text-green-700">Adoptadores</div>
             </div>
             <div className="rounded-2xl bg-gradient-to-br from-purple-50 to-purple-100 p-6 text-center">
-              <div className="mb-2 text-3xl font-bold text-purple-600">{activeCategories.length}</div>
-              <div className="text-sm font-medium text-purple-700">Categorías Activas</div>
+              <div className="mb-2 text-3xl font-bold text-purple-600">{totalCategories}</div>
+              <div className="text-sm font-medium text-purple-700">Total Categorías</div>
             </div>
             <div className="rounded-2xl bg-gradient-to-br from-pink-50 to-pink-100 p-6 text-center">
               <div className="mb-2 text-3xl font-bold text-pink-600">{users.length}</div>
@@ -232,7 +672,7 @@ export default function DashboardAdmin() {
         {/* === Empleados === */}
         {tab === "employees" && (
           <div className="space-y-6">
-            {lastRegisteredEmployee && (
+            {lastRegisteredEmployee && typeof lastRegisteredEmployee === 'object' && lastRegisteredEmployee !== null && (
               <div className="rounded-2xl border-0 bg-gradient-to-r from-blue-50 to-cyan-50 shadow-lg">
                 <div className="p-6">
                   <div className="flex items-center gap-4">
@@ -241,10 +681,6 @@ export default function DashboardAdmin() {
                     </div>
                     <div className="flex-1">
                       <h3 className="mb-1 text-lg font-bold text-blue-900">¡Empleado registrado exitosamente!</h3>
-                      <p className="text-blue-700">
-                        <strong>{lastRegisteredEmployee.name}</strong> ha sido agregado como{" "}
-                        <strong>{lastRegisteredEmployee.role}</strong>
-                      </p>
                     </div>
                     <button
                       onClick={() => setLastRegisteredEmployee(null)}
@@ -304,6 +740,23 @@ export default function DashboardAdmin() {
                     </div>
 
                     <div className="space-y-2">
+                      <label htmlFor="emp-password" className="flex items-center gap-2 text-sm font-medium text-gray-700">
+                        <Shield className="h-4 w-4 text-gray-500" />
+                        Contraseña *
+                      </label>
+                      <input
+                        id="emp-password"
+                        type="password"
+                        required
+                        value={newEmployee.password}
+                        onChange={(e) => setNewEmployee({ ...newEmployee, password: e.target.value })}
+                        placeholder="Mínimo 10 caracteres"
+                        minLength={10}
+                        className="h-12 w-full rounded-md border border-gray-300 bg-white px-3 text-sm shadow-sm outline-none focus:border-gray-400 focus:ring-2 focus:ring-gray-200"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
                       <label htmlFor="emp-phone" className="flex items-center gap-2 text-sm font-medium text-gray-700">
                         <Phone className="h-4 w-4 text-gray-500" />
                         Teléfono *
@@ -321,7 +774,7 @@ export default function DashboardAdmin() {
 
                     <div className="space-y-2">
                       <label htmlFor="emp-role" className="flex items-center gap-2 text-sm font-medium text-gray-700">
-                        <Shield className="h-4 w-4 text-gray-500" />
+                        <UserCheck className="h-4 w-4 text-gray-500" />
                         Rol *
                       </label>
                       <select
@@ -331,7 +784,7 @@ export default function DashboardAdmin() {
                         className="h-12 w-full rounded-md border border-gray-300 bg-white px-3 text-sm shadow-sm outline-none focus:border-gray-400 focus:ring-2 focus:ring-gray-200"
                       >
                         <option value="empleado">👤 Empleado</option>
-                        <option value="superadmin">👑 Superadministrador</option>
+                        <option value="admin">👑 Administrador</option>
                       </select>
                     </div>
                   </div>
@@ -425,31 +878,31 @@ export default function DashboardAdmin() {
                           <td className="px-4 py-3">
                             <div className="flex items-center gap-3">
                               <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-200 text-sm font-semibold text-gray-700">
-                                {getInitials(user.name)}
+                                {getInitials(user.nombre || user.name)}
                               </div>
                               <div>
-                                <div className="font-semibold text-gray-900">{user.name}</div>
-                                <div className="text-gray-500">{user.email}</div>
+                                <div className="font-semibold text-gray-900">{user.nombre || user.name}</div>
+                                <div className="text-gray-500">{user.correo || user.email}</div>
                               </div>
                             </div>
                           </td>
                           <td className="px-4 py-3">
-                            <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${getRoleColor(user.role)}`}>
-                              <RoleIcon role={user.role} />
-                              {user.role === "superadmin" ? "Superadmin" : user.role === "empleado" ? "Empleado" : "Adoptador"}
+                            <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${getRoleColor(getUserRole(user))}`}>
+                              <RoleIcon role={getUserRole(user)} />
+                              {getUserRole(user) === "admin" ? "Administrador" : getUserRole(user) === "empleado" ? "Empleado" : "Adoptador"}
                             </span>
                           </td>
                           <td className="px-4 py-3 text-sm">
-                            <div>{user.phone}</div>
+                            <div>{user.telefono || user.phone}</div>
                           </td>
-                          <td className="max-w-xs truncate px-4 py-3 text-sm">{user.address}</td>
+                          <td className="max-w-xs truncate px-4 py-3 text-sm">{user.direccion || user.address}</td>
                           <td className="px-4 py-3">
                             <div className="flex items-center gap-2">
                               <button className="inline-flex items-center gap-1 rounded-md border border-gray-300 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50">
                                 <Edit className="h-3 w-3" />
                                 Editar
                               </button>
-                              {user.role !== "superadmin" && (
+                              {getUserRole(user) !== "admin" && (
                                 <button
                                   onClick={() => handleDeleteUser(user.id)}
                                   className="inline-flex items-center gap-1 rounded-md border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-100"
@@ -494,7 +947,7 @@ export default function DashboardAdmin() {
                       <h3 className="mb-1 text-lg font-bold text-purple-900">¡Categoría creada exitosamente!</h3>
                       <p className="text-purple-700">
                         <strong>
-                          {lastRegisteredCategory.emoji} {lastRegisteredCategory.name}
+                          {lastRegisteredCategory.emoji} {lastRegisteredCategory.nombre || lastRegisteredCategory.name}
                         </strong>{" "}
                         ha sido agregada al sistema
                       </p>
@@ -609,36 +1062,14 @@ export default function DashboardAdmin() {
                     {categories.map((category) => (
                       <div
                         key={category.id}
-                        className={`rounded-xl border-2 p-4 transition-all ${
-                          category.isActive ? "border-green-200 bg-green-50" : "border-gray-200 bg-gray-50 opacity-70"
-                        }`}
+                        className="rounded-xl border-2 border-gray-200 bg-gray-50 p-4 transition-all"
                       >
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-3">
-                            <span className="text-2xl">{category.emoji}</span>
                             <div>
-                              <h3 className="font-semibold text-gray-900">{category.name}</h3>
-                              <p className="text-sm text-gray-600">{category.description}</p>
+                              <h3 className="font-semibold text-gray-900">{category.nombre || category.name}</h3>
+                              <p className="text-sm text-gray-600">{category.descripcion || category.description}</p>
                             </div>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <span
-                              className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                                category.isActive ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"
-                              }`}
-                            >
-                              {category.isActive ? "Activa" : "Inactiva"}
-                            </span>
-                            <button
-                              onClick={() => toggleCategoryStatus(category.id)}
-                              className={`rounded-md border px-3 py-1.5 text-xs font-semibold transition ${
-                                category.isActive
-                                  ? "border-red-200 bg-red-50 text-red-600 hover:bg-red-100"
-                                  : "border-green-200 bg-green-50 text-green-700 hover:bg-green-100"
-                              }`}
-                            >
-                              {category.isActive ? "Desactivar" : "Activar"}
-                            </button>
                           </div>
                         </div>
                       </div>
