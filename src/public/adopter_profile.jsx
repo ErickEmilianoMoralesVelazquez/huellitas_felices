@@ -37,6 +37,7 @@ export default function AdopterProfile() {
 
   useEffect(() => {
     fetchUserData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchUserData = async () => {
@@ -63,15 +64,20 @@ export default function AdopterProfile() {
     }
   };
 
+  // --- LISTAS DERIVADAS ---
+  // IMPORTANTE: el back marca la mascota como ADOPTADO aunque la adopción siga SOLICITADA.
+  // Para "mascotas ya adoptadas" nos guiamos por el estado del PET, NO por el de la adopción.
   const adoptedPets = useMemo(
-    () => adoptions.filter((adoption) => adoption.estado === "COMPLETADA"),
+    () => adoptions.filter((a) => a?.pet?.estado === "ADOPTADO"),
     [adoptions]
   );
+
   const inProcessPets = useMemo(
     () =>
       adoptions.filter(
-        (adoption) =>
-          adoption.estado === "SOLICITADA" || adoption.estado === "PENDIENTE"
+        (a) =>
+          a?.pet?.estado !== "ADOPTADO" &&
+          (a?.estado === "SOLICITADA" || a?.estado === "PENDIENTE")
       ),
     [adoptions]
   );
@@ -116,6 +122,15 @@ export default function AdopterProfile() {
     <div className="min-h-screen bg-gray-50">
       <main className="mx-auto max-w-6xl px-4 py-8">
         {/* Header con botón de logout */}
+        <div className="mb-4 flex justify-end">
+          <button
+            onClick={handleLogout}
+            className="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm bg-gray-100 hover:bg-gray-200 text-gray-700"
+          >
+            <LogOut className="h-4 w-4" />
+            Cerrar sesión
+          </button>
+        </div>
 
         {/* HERO con fondo degradado + avatar sobrepuesto */}
         <div className="relative mb-16">
@@ -387,7 +402,7 @@ export default function AdopterProfile() {
                                       Peso
                                     </p>
                                     <p className="font-semibold">
-                                      {adoption.pet?.peso || "N/A"} kg
+                                      {adoption.pet?.peso ?? "N/A"} kg
                                     </p>
                                   </div>
                                 </div>
@@ -397,9 +412,12 @@ export default function AdopterProfile() {
                                 <div className="flex items-center justify-between text-sm">
                                   <div className="flex items-center text-yellow-700">
                                     <Calendar className="mr-1 h-4 w-4" />
-                                    {new Date(
-                                      adoption.fechaSolicitud
-                                    ).toLocaleDateString("es-ES")}
+                                    {/* fecha de solicitud */}
+                                    {adoption.fechaSolicitud
+                                      ? new Date(
+                                          adoption.fechaSolicitud
+                                        ).toLocaleDateString("es-ES")
+                                      : "N/A"}
                                   </div>
                                   <span className="font-medium text-yellow-700">
                                     {adoption.estado === "SOLICITADA"
@@ -416,7 +434,7 @@ export default function AdopterProfile() {
                   </div>
                 )}
 
-                {/* Completadas */}
+                {/* Completadas → filtra por estado del PET */}
                 {adoptedPets.length > 0 && (
                   <div>
                     <div className="mb-4 flex items-center gap-3">
@@ -424,7 +442,7 @@ export default function AdopterProfile() {
                         <CheckCircle2 className="h-4 w-4 text-green-600" />
                       </div>
                       <h2 className="text-2xl font-bold text-gray-900">
-                        Adopciones completadas
+                        Mascotas adoptadas
                       </h2>
                       <span className="inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-800">
                         {adoptedPets.length}
@@ -479,7 +497,7 @@ export default function AdopterProfile() {
                                       Peso
                                     </p>
                                     <p className="font-semibold">
-                                      {adoption.pet?.peso || "N/A"} kg
+                                      {adoption.pet?.peso ?? "N/A"} kg
                                     </p>
                                   </div>
                                 </div>
@@ -490,10 +508,18 @@ export default function AdopterProfile() {
                                   <div className="flex items-center text-sm text-green-700">
                                     <Calendar className="mr-1 h-4 w-4" />
                                     <span>
-                                      Completado el{" "}
-                                      {new Date(
-                                        adoption.fechaSolicitud
-                                      ).toLocaleDateString("es-ES")}
+                                      Adoptado el{" "}
+                                      {(() => {
+                                        const f =
+                                          adoption?.pet?.fechaAdopcion ||
+                                          adoption?.fechaCompletada ||
+                                          adoption?.fechaSolicitud;
+                                        return f
+                                          ? new Date(f).toLocaleDateString(
+                                              "es-ES"
+                                            )
+                                          : "N/A";
+                                      })()}
                                     </span>
                                   </div>
                                   <div className="flex items-center gap-1">

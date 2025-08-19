@@ -34,14 +34,24 @@ const LoginForm = () => {
       const response = await authAPI.login(formData.correo, formData.password);
       const { token, rol, nombre } = response.data;
       
+      // Debug: Verificar datos del login
+      console.log('Login exitoso:', { token, rol, nombre, correo: formData.correo });
+      
       login({ rol, nombre, correo: formData.correo }, token);
       
+      // Navegación corregida según las rutas definidas
       if (rol === 'ADOPTADOR') {
-        navigate('/catalog');
+        navigate('/adoptador');
+      } else if (rol === 'EMPLEADO') {
+        navigate('/empleado');
+      } else if (rol === 'SUPERADMIN') {
+        navigate('/admin');
       } else {
-        navigate('/admin/dashboard');
+        // Fallback por si hay un rol no esperado
+        navigate('/');
       }
     } catch (err) {
+      console.error('Error en login:', err);
       setError(
         err.response?.status === 401
           ? 'Credenciales incorrectas'
@@ -63,7 +73,7 @@ const LoginForm = () => {
         >
           <img
             className="mx-auto h-16 w-auto"
-            src="/public/ICONOO.svg"
+            src="/ICONOO.svg"
             alt="Huellitas Felices"
           />
           <h2 className="mt-6 text-3xl font-bold text-gray-900">

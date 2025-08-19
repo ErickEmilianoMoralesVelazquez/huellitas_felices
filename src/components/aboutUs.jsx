@@ -48,7 +48,7 @@ const AboutUs = () => {
             </div>
 
             {/* Logo */}
-            <div className="flex justify-center md:justify-start">
+            <div className="flex justify-center  md:justify-center">
               <img 
                 src="../../public/ICONOO.svg" 
                 alt="Logo Huellitas Felices" 
